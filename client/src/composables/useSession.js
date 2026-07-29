@@ -68,6 +68,10 @@ export function useSession() {
     socket?.close()
   }
 
+  function primeAudio() {
+    playback.prime()
+  }
+
   return {
     status,
     captions,
@@ -79,6 +83,7 @@ export function useSession() {
     endTurn,
     endSession,
     sendAudioChunk,
+    primeAudio,
     disconnect,
   }
 }

@@ -34,7 +34,7 @@ const languages = ref([])
 const selectedLanguage = ref(sessionStorage.getItem(`lang:${props.token}`) || null)
 const phase = ref('picking_language')
 
-const { status, captions, connectAsPatient, join, startTurn, endTurn, sendAudioChunk, disconnect } =
+const { status, captions, connectAsPatient, join, startTurn, endTurn, sendAudioChunk, primeAudio, disconnect } =
   useSession()
 
 const mic = useMicCapture({
@@ -52,6 +52,7 @@ onMounted(async () => {
 
 function confirmLanguage() {
   if (!selectedLanguage.value) return
+  primeAudio()
   sessionStorage.setItem(`lang:${props.token}`, selectedLanguage.value)
   join(selectedLanguage.value)
   phase.value = 'in_call'

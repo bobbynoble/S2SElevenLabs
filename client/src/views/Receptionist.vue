@@ -41,7 +41,7 @@ const languages = ref([])
 const selectedLanguage = ref('en')
 const languageConfirmed = ref(false)
 
-const { status, captions, connectAsReceptionist, join, startTurn, endTurn, endSession, sendAudioChunk, disconnect } =
+const { status, captions, connectAsReceptionist, join, startTurn, endTurn, endSession, sendAudioChunk, primeAudio, disconnect } =
   useSession()
 
 const mic = useMicCapture({
@@ -67,6 +67,7 @@ onMounted(async () => {
 })
 
 function confirmLanguage() {
+  primeAudio()
   join(selectedLanguage.value)
   languageConfirmed.value = true
 }

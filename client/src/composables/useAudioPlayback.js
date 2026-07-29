@@ -25,6 +25,8 @@ export function useAudioPlayback() {
     if (chunks.length === 0) return
     const merged = mergeArrayBuffers(chunks)
     chunks = []
+    // Mobile browsers suspend AudioContext until a user gesture has occurred.
+    if (audioContext.state === 'suspended') await audioContext.resume()
     const audioBuffer = await audioContext.decodeAudioData(merged)
     const source = audioContext.createBufferSource()
     source.buffer = audioBuffer
@@ -32,5 +34,10 @@ export function useAudioPlayback() {
     source.start()
   }
 
-  return { appendChunk, playBuffered }
+  // Call from a user-gesture handler (button click) so iOS Safari unlocks the context.
+  function prime() {
+    if (audioContext.state === 'suspended') audioContext.resume()
+  }
+
+  return { appendChunk, playBuffered, prime }
 }

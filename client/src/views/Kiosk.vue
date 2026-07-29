@@ -1,16 +1,23 @@
 <template>
-  <div class="kiosk">
-    <h1>Hospital Reception Interpreter</h1>
+  <div class="page">
+    <AppHeader />
+    <main class="kiosk">
+      <div class="card">
+        <template v-if="!session">
+          <h1>Reception desk</h1>
+          <p class="helper">Start a new interpreted conversation with a patient.</p>
+          <button type="button" class="btn btn-primary new-patient" @click="startSession">
+            New Patient
+          </button>
+        </template>
 
-    <button v-if="!session" type="button" class="new-patient" @click="startSession">
-      New Patient
-    </button>
-
-    <div v-else class="session-panel">
-      <QRCodeDisplay :qr-url="session.qr_url" :join-url="session.patient_join_url" />
-      <ConnectionStatus :state="status.state" />
-      <button type="button" class="cancel" @click="cancelSession">Cancel</button>
-    </div>
+        <div v-else class="session-panel">
+          <QRCodeDisplay :qr-url="session.qr_url" :join-url="session.patient_join_url" />
+          <ConnectionStatus :state="status.state" />
+          <button type="button" class="btn btn-secondary" @click="cancelSession">Cancel</button>
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 
@@ -19,6 +26,7 @@ import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api.js'
 import { useSession } from '../composables/useSession.js'
+import AppHeader from '../components/AppHeader.vue'
 import QRCodeDisplay from '../components/QRCodeDisplay.vue'
 import ConnectionStatus from '../components/ConnectionStatus.vue'
 
@@ -52,38 +60,45 @@ onBeforeUnmount(() => disconnect())
 </script>
 
 <style scoped>
-.kiosk {
+.page {
   min-height: 100%;
   display: flex;
   flex-direction: column;
+}
+.kiosk {
+  flex: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
-  padding: 2rem;
+  padding: 1.5rem;
+}
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-card);
+  padding: 2.5rem 2rem;
+  max-width: 480px;
+  width: 100%;
   text-align: center;
 }
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+}
+.helper {
+  color: var(--color-muted);
+  margin: 0 0 1.75rem;
+  font-size: 1.05rem;
+}
 .new-patient {
-  padding: 1.5rem 3rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-  border-radius: 1rem;
-  border: none;
-  background: var(--color-accent);
-  color: white;
-  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 1.25rem 2.5rem;
 }
 .session-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
-}
-.cancel {
-  padding: 0.5rem 1.25rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
 }
 </style>

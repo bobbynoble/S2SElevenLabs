@@ -19,6 +19,13 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
+
+# Must run before importing any of our own modules below -- several of them read
+# environment variables (API keys, FRONTEND_ORIGIN, etc.) as module-level constants at
+# import time, so .env has to be loaded into the process first or they'll silently fall
+# back to their hardcoded defaults for the lifetime of the process.
+load_dotenv()
+
 from fastapi import Depends, FastAPI, HTTPException, Response, Security, WebSocket, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
@@ -28,8 +35,6 @@ from .languages import SUPPORTED_LANGUAGES
 from .models import CreateSessionResponse, HealthResponse, LanguageInfo
 from .qr import build_join_url, generate_qr_png
 from .session_manager import manager
-
-load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,

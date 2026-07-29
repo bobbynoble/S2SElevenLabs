@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -60,7 +62,13 @@ def test_receptionist_can_set_own_language_without_affecting_patient():
 
             receptionist_ws.send_json({"type": "join", "language": "fr"})
 
+            # The receptionist's own "join" has no server response to synchronize on (only a
+            # patient join broadcasts a status), so poll briefly rather than assert immediately.
             session = manager.get_by_id(session_id)
+            for _ in range(50):
+                if session.receptionist_language == "fr":
+                    break
+                time.sleep(0.01)
             assert session.receptionist_language == "fr"
             assert session.status.value == "pending_patient"
 

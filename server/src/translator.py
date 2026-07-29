@@ -43,6 +43,14 @@ async def translate(text: str, source_lang: str, target_lang: str) -> str:
     except anthropic.APIError as exc:
         raise TranslationError(str(exc)) from exc
 
+    # Claude's own safety classifiers can intervene mid-generation and stop the response
+    # short of an actual translation. Left unchecked, whatever partial/refusal text came back
+    # would get spoken to the patient or receptionist as if it were a real reply -- a genuinely
+    # dangerous failure mode if the original content was something urgent. Surface it as a
+    # clear error instead of silently passing it through.
+    if getattr(response, "stop_reason", None) == "refusal":
+        raise TranslationError("Claude declined to translate this content (policy refusal).")
+
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise TranslationError("Claude returned no text content for the translation.")

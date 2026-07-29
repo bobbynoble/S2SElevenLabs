@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from src import translator
 
 
@@ -40,6 +42,18 @@ async def test_translate_skips_api_call_for_identical_languages(monkeypatch):
     result = await translator.translate("Hello", "en", "en")
 
     assert result == "Hello"
+
+
+async def test_translate_raises_on_policy_refusal(monkeypatch):
+    response = SimpleNamespace(
+        stop_reason="refusal",
+        content=[SimpleNamespace(type="text", text="I can't help with that.")],
+    )
+    fake_client = _FakeAnthropicClient(response)
+    monkeypatch.setattr(translator.anthropic, "AsyncAnthropic", lambda: fake_client)
+
+    with pytest.raises(translator.TranslationError):
+        await translator.translate("Hello", "en", "pl")
 
 
 async def test_translate_skips_api_call_for_empty_text(monkeypatch):

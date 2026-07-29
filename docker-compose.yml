@@ -1,0 +1,22 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    networks:
+      - interpreter
+
+  client:
+    build: ./client
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+    networks:
+      - interpreter
+
+networks:
+  interpreter:
+    driver: bridge

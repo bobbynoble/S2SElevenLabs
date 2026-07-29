@@ -48,7 +48,7 @@ async def run_turn(session: Session, speaker: Speaker, audio_bytes: bytes) -> Tu
     audio: bytes | None = None
     if is_tts_supported(target_lang):
         try:
-            audio = await elevenlabs_client.synthesize(translated_text)
+            audio = await elevenlabs_client.synthesize(translated_text, language=target_lang)
         except elevenlabs_client.ElevenLabsError as exc:
             raise PipelineError("tts_failed", str(exc)) from exc
 

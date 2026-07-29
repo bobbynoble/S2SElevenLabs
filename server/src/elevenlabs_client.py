@@ -22,6 +22,12 @@ ELEVENLABS_BASE_URL = os.getenv("ELEVENLABS_BASE_URL", "https://api.elevenlabs.i
 ELEVENLABS_DEFAULT_VOICE_ID = os.getenv("ELEVENLABS_DEFAULT_VOICE_ID", "")
 STT_MODEL_ID = os.getenv("ELEVENLABS_STT_MODEL_ID", "scribe_v1")
 TTS_MODEL_ID = os.getenv("ELEVENLABS_TTS_MODEL_ID", "eleven_multilingual_v2")
+TTS_EXTENDED_MODEL_ID = os.getenv("ELEVENLABS_TTS_EXTENDED_MODEL_ID", "eleven_v3")
+
+# Languages eleven_multilingual_v2 doesn't cover but eleven_v3 does -- confirmed by
+# round-tripping generated audio back through Scribe STT and getting the original text back.
+# eleven_v3 is noticeably slower per call, so it's used only for these, not as the default.
+EXTENDED_MODEL_LANGUAGES = {"pa", "ur", "bn", "so", "fa", "ps", "vi"}
 
 PCM_SAMPLE_RATE_HZ = 16000
 
@@ -78,15 +84,17 @@ async def transcribe(pcm_audio: bytes, language_hint: str | None = None) -> Tran
     )
 
 
-async def synthesize(text: str, voice_id: str | None = None) -> bytes:
+async def synthesize(text: str, language: str | None = None, voice_id: str | None = None) -> bytes:
     voice = voice_id or ELEVENLABS_DEFAULT_VOICE_ID
     if not voice:
         raise ElevenLabsError("No ElevenLabs voice_id configured (ELEVENLABS_DEFAULT_VOICE_ID).")
 
+    model_id = TTS_EXTENDED_MODEL_ID if language in EXTENDED_MODEL_LANGUAGES else TTS_MODEL_ID
+
     async with _client() as client:
         response = await client.post(
             f"/v1/text-to-speech/{voice}",
-            json={"text": text, "model_id": TTS_MODEL_ID},
+            json={"text": text, "model_id": model_id},
             params={"output_format": "mp3_44100_128"},
         )
     if response.status_code != 200:

@@ -78,3 +78,31 @@ async def test_synthesize_returns_audio_bytes(monkeypatch):
     assert audio == b"fake-mp3-bytes"
     url, _kwargs = calls[0]
     assert url == "/v1/text-to-speech/voice-123"
+
+
+async def test_synthesize_uses_default_model_for_unlisted_language(monkeypatch):
+    calls = []
+    fake_response = _FakeResponse(200, content=b"fake-mp3-bytes")
+    monkeypatch.setattr(
+        elevenlabs_client.httpx, "AsyncClient", lambda **kw: _FakeAsyncClient(calls, fake_response)
+    )
+    monkeypatch.setattr(elevenlabs_client, "ELEVENLABS_DEFAULT_VOICE_ID", "voice-123")
+
+    await elevenlabs_client.synthesize("hello", language="en")
+
+    _url, kwargs = calls[0]
+    assert kwargs["json"]["model_id"] == elevenlabs_client.TTS_MODEL_ID
+
+
+async def test_synthesize_uses_extended_model_for_extended_language(monkeypatch):
+    calls = []
+    fake_response = _FakeResponse(200, content=b"fake-mp3-bytes")
+    monkeypatch.setattr(
+        elevenlabs_client.httpx, "AsyncClient", lambda **kw: _FakeAsyncClient(calls, fake_response)
+    )
+    monkeypatch.setattr(elevenlabs_client, "ELEVENLABS_DEFAULT_VOICE_ID", "voice-123")
+
+    await elevenlabs_client.synthesize("hello", language="ur")
+
+    _url, kwargs = calls[0]
+    assert kwargs["json"]["model_id"] == elevenlabs_client.TTS_EXTENDED_MODEL_ID

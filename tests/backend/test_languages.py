@@ -31,9 +31,16 @@ def test_unknown_code_is_not_supported():
     assert english_name_for("xx") == "xx"
 
 
-def test_flagged_languages_are_stt_only():
-    for code in ("pa", "ur", "bn", "so", "fa", "ps", "ti", "vi"):
+def test_extended_model_languages_have_tts_support():
+    for code in ("pa", "ur", "bn", "so", "fa", "ps", "vi"):
         lang = get_language(code)
         assert lang is not None
         assert lang.stt_supported is True
-        assert lang.tts_supported is False
+        assert lang.tts_supported is True
+
+
+def test_tigrinya_is_stt_only():
+    lang = get_language("ti")
+    assert lang is not None
+    assert lang.stt_supported is True
+    assert lang.tts_supported is False

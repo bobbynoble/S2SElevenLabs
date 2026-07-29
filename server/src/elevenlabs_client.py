@@ -1,11 +1,12 @@
-"""Thin wrapper around the ElevenLabs REST API for the two calls this app needs:
-speech-to-text (Scribe) and text-to-speech (multilingual v2).
+"""Wrapper around the official ElevenLabs SDK for the two calls this app needs:
+speech-to-text (Scribe) and text-to-speech.
 
-Uses httpx directly (rather than the ElevenLabs SDK) so ELEVENLABS_BASE_URL can be pointed at a
-UK/EU-resident endpoint, once confirmed with ElevenLabs, without depending on SDK support for a
-custom base URL. Endpoint shapes reflect ElevenLabs' documented v1 REST API as of this codebase's
-writing -- reverify against current docs before relying on this in production, since these are
-called out in the project plan as not independently verified in this session.
+POC decision: uses the official `elevenlabs` SDK rather than calling the REST API directly
+over httpx. The SDK's AsyncElevenLabs client accepts a custom base_url, so ELEVENLABS_BASE_URL
+can still be pointed at a UK/EU-resident endpoint once confirmed with ElevenLabs -- switching
+to the SDK does not give up that flexibility, which was the original reason httpx was used
+directly. A single client is created at import time and reused for every call rather than
+opening a fresh connection per request.
 """
 
 from __future__ import annotations
@@ -15,7 +16,8 @@ import os
 import wave
 from dataclasses import dataclass
 
-import httpx
+from elevenlabs import AsyncElevenLabs
+from elevenlabs.core.api_error import ApiError
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 ELEVENLABS_BASE_URL = os.getenv("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io")
@@ -30,6 +32,8 @@ TTS_EXTENDED_MODEL_ID = os.getenv("ELEVENLABS_TTS_EXTENDED_MODEL_ID", "eleven_v3
 EXTENDED_MODEL_LANGUAGES = {"pa", "ur", "bn", "so", "fa", "ps", "vi"}
 
 PCM_SAMPLE_RATE_HZ = 16000
+
+_client = AsyncElevenLabs(api_key=ELEVENLABS_API_KEY, base_url=ELEVENLABS_BASE_URL)
 
 
 @dataclass
@@ -54,33 +58,20 @@ def _pcm16_to_wav(pcm_bytes: bytes, sample_rate: int = PCM_SAMPLE_RATE_HZ) -> by
     return buffer.getvalue()
 
 
-def _client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        base_url=ELEVENLABS_BASE_URL,
-        headers={"xi-api-key": ELEVENLABS_API_KEY},
-        timeout=30.0,
-    )
-
-
 async def transcribe(pcm_audio: bytes, language_hint: str | None = None) -> TranscriptResult:
     wav_bytes = _pcm16_to_wav(pcm_audio)
-    data = {"model_id": STT_MODEL_ID}
+    kwargs = {"model_id": STT_MODEL_ID, "file": ("turn.wav", wav_bytes, "audio/wav")}
     if language_hint:
-        data["language_code"] = language_hint
+        kwargs["language_code"] = language_hint
 
-    async with _client() as client:
-        response = await client.post(
-            "/v1/speech-to-text",
-            data=data,
-            files={"file": ("turn.wav", wav_bytes, "audio/wav")},
-        )
-    if response.status_code != 200:
-        raise ElevenLabsError(f"ElevenLabs STT failed ({response.status_code}): {response.text}")
+    try:
+        response = await _client.speech_to_text.convert(**kwargs)
+    except ApiError as exc:
+        raise ElevenLabsError(f"ElevenLabs STT failed ({exc.status_code}): {exc.body}") from exc
 
-    body = response.json()
     return TranscriptResult(
-        text=body.get("text", ""),
-        detected_language=body.get("language_code"),
+        text=getattr(response, "text", "") or "",
+        detected_language=getattr(response, "language_code", None),
     )
 
 
@@ -91,13 +82,14 @@ async def synthesize(text: str, language: str | None = None, voice_id: str | Non
 
     model_id = TTS_EXTENDED_MODEL_ID if language in EXTENDED_MODEL_LANGUAGES else TTS_MODEL_ID
 
-    async with _client() as client:
-        response = await client.post(
-            f"/v1/text-to-speech/{voice}",
-            json={"text": text, "model_id": model_id},
-            params={"output_format": "mp3_44100_128"},
-        )
-    if response.status_code != 200:
-        raise ElevenLabsError(f"ElevenLabs TTS failed ({response.status_code}): {response.text}")
+    try:
+        chunks = [
+            chunk
+            async for chunk in _client.text_to_speech.convert(
+                voice, text=text, model_id=model_id, output_format="mp3_44100_128"
+            )
+        ]
+    except ApiError as exc:
+        raise ElevenLabsError(f"ElevenLabs TTS failed ({exc.status_code}): {exc.body}") from exc
 
-    return response.content
+    return b"".join(chunks)

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from . import elevenlabs_client, translator
 from .languages import is_tts_supported
 from .models import ErrorCode, Speaker
 from .session_manager import Session
+
+logger = logging.getLogger(__name__)
 
 
 class PipelineError(Exception):
@@ -51,6 +54,13 @@ async def run_turn(session: Session, speaker: Speaker, audio_bytes: bytes) -> Tu
             audio = await elevenlabs_client.synthesize(translated_text, language=target_lang)
         except elevenlabs_client.ElevenLabsError as exc:
             raise PipelineError("tts_failed", str(exc)) from exc
+
+    # TEMPORARY: logged for live quality/accuracy monitoring during testing -- remove once
+    # that's done, since this puts transcribed speech content into plain-text logs.
+    logger.info(
+        "TURN %s [%s->%s] original=%r translated=%r",
+        speaker, source_lang, target_lang, transcript.text, translated_text,
+    )
 
     return TurnResult(
         original_text=transcript.text,

@@ -21,9 +21,9 @@ be described that way to a customer, patient, or Information Governance (IG) rev
 
 ## Questions for ElevenLabs
 
-1. Does the Speech-to-Text (Scribe) and Text-to-Speech (`eleven_multilingual_v2`) API offer
-   a regional endpoint or deployment option that keeps audio/text processing within the UK
-   or EU?
+1. Does the Speech-to-Text (Scribe) and Text-to-Speech (`eleven_multilingual_v2`, and
+   `eleven_v3` for the 7 languages v2 doesn't cover) API offer a regional endpoint or
+   deployment option that keeps audio/text processing within the UK or EU?
 2. If not region-pinned, where is audio processed and stored — even transiently — for these
    two endpoints specifically?
 3. What is the data retention policy for submitted audio and generated transcripts/audio? Is

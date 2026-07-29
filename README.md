@@ -86,10 +86,12 @@ questions are **not resolved by this codebase** and must be confirmed before pro
   Anthropic (e.g. an enterprise data-processing agreement), or consider routing the translation
   step via a UK-region cloud offering (e.g. AWS Bedrock's London region) instead. An
   `ANTHROPIC_BASE_URL` override is provided so this can be changed without a code rewrite.
-- **Language voice coverage:** several supported languages (see `server/src/languages.py`) are not
-  confirmed to have ElevenLabs TTS voice support today (flagged per-language via `tts_supported`).
-  Those languages still get full live text captions; verify current ElevenLabs voice coverage
-  before relying on synthesized speech for them.
+- **Language voice coverage:** Tigrinya (see `server/src/languages.py`) has no confirmed ElevenLabs
+  TTS voice — round-trip testing (synthesize, then transcribe back) showed the audio doesn't
+  actually say the input text. It still gets full live text captions, just no synthesized voice
+  reply. The other 16 supported languages are confirmed working, including 7 (Punjabi, Urdu,
+  Bengali, Somali, Farsi/Dari, Pashto, Vietnamese) that use `eleven_v3` rather than the default
+  `eleven_multilingual_v2`, which doesn't cover them.
 
 ## Testing
 

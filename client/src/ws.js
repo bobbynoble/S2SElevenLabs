@@ -10,6 +10,18 @@ function createSocket(path, { onMessage, onClose } = {}) {
   const socket = new WebSocket(`${wsOrigin()}${path}`)
   socket.binaryType = 'arraybuffer'
 
+  // Messages sent before the handshake completes are queued rather than thrown away --
+  // send() throws synchronously while the socket is still CONNECTING, and callers (e.g. the
+  // 'join' message fired the instant a patient picks a language) can easily race the handshake
+  // over a real network like the ngrok tunnel.
+  const pending = []
+  let open = false
+
+  socket.addEventListener('open', () => {
+    open = true
+    for (const payload of pending) socket.send(payload)
+    pending.length = 0
+  })
   socket.addEventListener('message', (event) => {
     if (typeof event.data === 'string') {
       onMessage?.(JSON.parse(event.data), null)
@@ -19,12 +31,20 @@ function createSocket(path, { onMessage, onClose } = {}) {
   })
   socket.addEventListener('close', () => onClose?.())
 
+  function send(payload) {
+    if (open) {
+      socket.send(payload)
+    } else {
+      pending.push(payload)
+    }
+  }
+
   return {
     sendJson(payload) {
-      socket.send(JSON.stringify(payload))
+      send(JSON.stringify(payload))
     },
     sendBinary(buffer) {
-      socket.send(buffer)
+      send(buffer)
     },
     close() {
       socket.close()

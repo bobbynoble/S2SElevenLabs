@@ -32,6 +32,7 @@ export function useSession() {
         break
       case 'error':
         error.value = json
+        status.value = { state: 'error', detail: json.message }
         break
     }
   }

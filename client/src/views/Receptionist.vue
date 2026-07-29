@@ -18,8 +18,14 @@
           <p v-if="status.state !== 'error' && status.detail" class="patient-lang">Patient language: {{ status.detail }}</p>
         </div>
         <CaptionPanel :captions="captions" />
+        <div class="noise-control">
+          <label for="noiseLevel">Testing: simulate background noise</label>
+          <select id="noiseLevel" v-model="noiseLevel">
+            <option v-for="opt in NOISE_LEVELS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
         <p class="helper hint">Press and hold the button below, speak, then release.</p>
-        <MicButton @start="onMicStart" @end="onMicEnd" />
+        <MicButton ref="micButton" @start="onMicStart" @end="onMicEnd" />
         <button type="button" class="btn btn-secondary end-session" @click="onEndSession">End Session</button>
       </template>
     </main>
@@ -32,6 +38,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api.js'
 import { useSession } from '../composables/useSession.js'
 import { useMicCapture } from '../composables/useMicCapture.js'
+import { NOISE_LEVELS } from '../audio/hospitalNoise.js'
 import AppHeader from '../components/AppHeader.vue'
 import LanguagePicker from '../components/LanguagePicker.vue'
 import ConnectionStatus from '../components/ConnectionStatus.vue'
@@ -52,9 +59,16 @@ const languageConfirmed = ref(false)
 const { status, captions, connectAsReceptionist, join, startTurn, endTurn, endSession, sendAudioChunk, primeAudio, disconnect } =
   useSession()
 
+const micButton = ref(null)
+const noiseLevel = ref('off')
+
 const mic = useMicCapture({
   onChunk: sendAudioChunk,
-  onSilenceTimeout: () => onMicEnd(),
+  // Goes through the button's own release path (rather than calling onMicEnd directly) so
+  // its visual "held" state resets in sync with the turn actually ending -- otherwise it's
+  // left showing "Release to send" after an auto-stop with nothing left to release.
+  onSilenceTimeout: () => micButton.value?.forceRelease(),
+  getNoiseLevel: () => noiseLevel.value,
 })
 
 onMounted(async () => {
@@ -146,5 +160,21 @@ h1 {
 }
 .end-session {
   align-self: center;
+}
+.noise-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  align-self: center;
+  padding: 0.4rem 0.75rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+.noise-control select {
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
 }
 </style>

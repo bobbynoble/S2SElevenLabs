@@ -3,6 +3,8 @@
 // timer decides *when* to stop sending audio (a UX safety net for push-to-talk), it does
 // not interpret what was said.
 
+import { createNoiseGraph } from '../audio/hospitalNoise.js'
+
 const TARGET_SAMPLE_RATE = 16000
 const CHUNK_FLUSH_MS = 200
 const SILENCE_RMS_THRESHOLD = 0.01
@@ -26,11 +28,12 @@ function rms(floatSamples) {
   return Math.sqrt(sum / floatSamples.length)
 }
 
-export function useMicCapture({ onChunk, onSilenceTimeout } = {}) {
+export function useMicCapture({ onChunk, onSilenceTimeout, getNoiseLevel } = {}) {
   let audioContext = null
   let sourceNode = null
   let workletNode = null
   let stream = null
+  let noiseGraph = null
   let pendingSamples = []
   let pendingSampleCount = 0
   let flushTimer = null
@@ -63,6 +66,22 @@ export function useMicCapture({ onChunk, onSilenceTimeout } = {}) {
     sourceNode = audioContext.createMediaStreamSource(stream)
     workletNode = new AudioWorkletNode(audioContext, 'pcm-capture-processor')
 
+    // Testing aid: optionally mix synthesized hospital-reception noise in with the real mic
+    // signal before it reaches the worklet, so noise robustness can be exercised with real
+    // speech rather than only offline. With noise enabled, ambient level alone can sit above
+    // SILENCE_RMS_THRESHOLD, so the auto-stop timer may not fire -- release the button
+    // manually in that case.
+    const level = getNoiseLevel?.() ?? 'off'
+    const mixNode = audioContext.createGain()
+    sourceNode.connect(mixNode)
+    if (level !== 'off') {
+      noiseGraph = createNoiseGraph(audioContext, level)
+      noiseGraph.output.connect(mixNode)
+      // Also route to the speakers -- otherwise the noise silently affects only the audio
+      // sent for transcription, with nothing audible to confirm it's actually on.
+      noiseGraph.output.connect(audioContext.destination)
+    }
+
     workletNode.port.onmessage = (event) => {
       const samples = event.data
       pendingSamples.push(samples)
@@ -74,7 +93,7 @@ export function useMicCapture({ onChunk, onSilenceTimeout } = {}) {
       }
     }
 
-    sourceNode.connect(workletNode)
+    mixNode.connect(workletNode)
     flushTimer = setInterval(flushPending, CHUNK_FLUSH_MS)
     armSilenceTimer()
   }
@@ -87,6 +106,8 @@ export function useMicCapture({ onChunk, onSilenceTimeout } = {}) {
     flushPending()
     workletNode?.disconnect()
     sourceNode?.disconnect()
+    noiseGraph?.stop()
+    noiseGraph = null
     stream?.getTracks().forEach((track) => track.stop())
     audioContext?.close()
     audioContext = null

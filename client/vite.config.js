@@ -6,9 +6,9 @@ export default defineConfig({
   server: {
     allowedHosts: true,
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': 'http://localhost:8000',
       '/ws': {
-        target: 'ws://localhost:8080',
+        target: 'ws://localhost:8000',
         ws: true,
       },
     },

@@ -21,7 +21,7 @@ audio. All speech-to-text, translation, and text-to-speech happens server-side.
 # Backend
 cd server
 pip install -r requirements.txt
-uvicorn src.main:app --reload --port 8000
+uvicorn src.main:app --reload --port 8010
 
 # Backend tests
 cd server
@@ -36,7 +36,7 @@ npm run dev
 docker-compose up
 
 # API docs
-open http://localhost:8000/docs
+open http://localhost:8010/docs
 ```
 
 ## Environment Setup

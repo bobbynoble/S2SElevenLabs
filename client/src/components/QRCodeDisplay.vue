@@ -3,6 +3,7 @@
     <p class="instruction">Ask the patient to scan this code with their phone camera</p>
     <img :src="qrUrl" alt="Scan to join the interpreter session" class="qr-image" />
     <p class="join-url">Or share this link: {{ joinUrl }}</p>
+    <p class="privacy-note">Your conversation is interpreted live and isn't saved once the session ends.</p>
   </div>
 </template>
 
@@ -41,5 +42,12 @@ defineProps({
   word-break: break-all;
   max-width: 320px;
   text-align: center;
+}
+.privacy-note {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  max-width: 320px;
+  text-align: center;
+  margin: 0;
 }
 </style>

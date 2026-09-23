@@ -28,6 +28,16 @@ class SessionStatus(str, Enum):
 
 
 @dataclass
+class TurnRecord:
+    speaker: str
+    original_text: str
+    original_lang: str
+    translated_text: str
+    translated_lang: str
+    at: datetime
+
+
+@dataclass
 class Session:
     id: str
     patient_token: str
@@ -42,6 +52,9 @@ class Session:
     last_activity_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     patient_disconnected_at: datetime | None = None
     receptionist_disconnected_at: datetime | None = None
+    turns: list[TurnRecord] = field(default_factory=list)
+    total_stt_seconds: float = 0.0
+    total_tts_characters: int = 0
 
 
 class SessionManager:

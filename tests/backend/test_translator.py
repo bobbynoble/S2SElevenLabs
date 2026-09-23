@@ -56,6 +56,25 @@ async def test_translate_raises_on_policy_refusal(monkeypatch):
         await translator.translate("Hello", "en", "pl")
 
 
+async def test_translate_raises_on_commentary_instead_of_translation(monkeypatch):
+    response = SimpleNamespace(
+        stop_reason="end_turn",
+        content=[SimpleNamespace(
+            type="text",
+            text=(
+                "I'm having difficulty with this text as it appears to contain Cyrillic "
+                "characters mixed with Punjabi content. Could you please provide the text in "
+                "standard Punjabi script (Gurmukhi)?"
+            ),
+        )],
+    )
+    fake_client = _FakeAnthropicClient(response)
+    monkeypatch.setattr(translator.anthropic, "AsyncAnthropic", lambda: fake_client)
+
+    with pytest.raises(translator.TranslationError):
+        await translator.translate("garbled input", "pa", "en")
+
+
 async def test_translate_skips_api_call_for_empty_text(monkeypatch):
     def fail_client():
         raise AssertionError("Should not construct a client for empty text")

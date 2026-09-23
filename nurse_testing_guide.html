@@ -1,0 +1,534 @@
+<title>Interpreter Testing Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f2f5f7;
+    --surface: #ffffff;
+    --surface-2: #eef2f4;
+    --border: #d7dfe3;
+    --text: #172a37;
+    --muted: #5c707c;
+    --primary: #005eb8;
+    --primary-dark: #003d78;
+    --primary-bg: #e6f0f9;
+    --amber-bg: #fef0c7;
+    --amber-text: #92400e;
+    --green-bg: #d1fadf;
+    --green-text: #067647;
+    --red-bg: #fee4e2;
+    --red-text: #b42318;
+    --shadow: 0 1px 2px rgba(23,42,55,0.06), 0 1px 12px rgba(23,42,55,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10191f;
+      --surface: #17242d;
+      --surface-2: #1e2e38;
+      --border: #2b3d48;
+      --text: #e7eef2;
+      --muted: #93a7b3;
+      --primary: #5b9fe0;
+      --primary-dark: #8ec0ef;
+      --primary-bg: #1a3450;
+      --amber-bg: #3a2c11;
+      --amber-text: #f0c26a;
+      --green-bg: #143524;
+      --green-text: #6fdba0;
+      --red-bg: #3a1a18;
+      --red-text: #f3897f;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 12px rgba(0,0,0,0.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10191f;
+    --surface: #17242d;
+    --surface-2: #1e2e38;
+    --border: #2b3d48;
+    --text: #e7eef2;
+    --muted: #93a7b3;
+    --primary: #5b9fe0;
+    --primary-dark: #8ec0ef;
+    --primary-bg: #1a3450;
+    --amber-bg: #3a2c11;
+    --amber-text: #f0c26a;
+    --green-bg: #143524;
+    --green-text: #6fdba0;
+    --red-bg: #3a1a18;
+    --red-text: #f3897f;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 12px rgba(0,0,0,0.25);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  .topbar {
+    background: var(--primary);
+    color: white;
+    padding: 0.9rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .topbar .badge {
+    background: white;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+  }
+  .topbar .title { font-weight: 600; font-size: 1.05rem; }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 5rem;
+  }
+
+  h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+    text-wrap: balance;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 1.05rem;
+    margin: 0 0 2rem;
+    max-width: 60ch;
+  }
+
+  section { margin-bottom: 2.25rem; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 1.5rem 1.6rem;
+  }
+
+  h2 { font-size: 1.2rem; font-weight: 700; margin: 0 0 0.9rem; }
+  h2 .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    margin-right: 0.55rem;
+    vertical-align: -0.3rem;
+  }
+  p { margin: 0 0 0.75rem; }
+  p:last-child { margin-bottom: 0; }
+  ul, ol { margin: 0 0 0.75rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.35rem; }
+  li:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+
+  .callout {
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+  }
+  .callout .icon { font-size: 1.1rem; line-height: 1.3; }
+  .callout.info { background: var(--primary-bg); color: var(--text); }
+  .callout.warn { background: var(--amber-bg); color: var(--amber-text); }
+  .callout.warn strong { color: inherit; }
+
+  .lang-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+  }
+  .lang-pill {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  .link-box {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .link-box a { color: var(--primary-dark); font-weight: 600; word-break: break-all; }
+  .copy-btn {
+    flex-shrink: 0;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .copy-btn:active { transform: translateY(1px); }
+
+  .screenshot-cue {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--surface-2);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+  }
+
+  .phrase-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin-top: 0.5rem; }
+  .phrase-table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.02em; padding: 0.3rem 0.5rem 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .phrase-table td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .phrase-table tr:last-child td { border-bottom: none; }
+
+  /* Feedback form */
+  #feedback-status { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.75rem; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem; }
+  .field .hint { font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+  input[type=text], select, textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  textarea { resize: vertical; min-height: 4.5rem; }
+  input[type=file] { font-family: inherit; font-size: 0.9rem; color: var(--text); }
+  .radio-row { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+  .radio-row label { display: flex; align-items: center; gap: 0.4rem; font-weight: 500; font-size: 0.9rem; }
+
+  .submit-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.7rem 1.4rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .submit-btn:not(:disabled):active { transform: translateY(1px); }
+
+  .toast {
+    margin-top: 0.85rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .toast.ok { background: var(--green-bg); color: var(--green-text); }
+  .toast.err { background: var(--red-bg); color: var(--red-text); }
+  [hidden] { display: none !important; }
+
+  .feedback-item {
+    border-top: 1px solid var(--border);
+    padding: 0.9rem 0;
+  }
+  .feedback-item:first-child { border-top: none; padding-top: 0; }
+  .feedback-item .meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .feedback-item .outcome-pill {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .outcome-pill.worked { background: var(--green-bg); color: var(--green-text); }
+  .outcome-pill.issue { background: var(--red-bg); color: var(--red-text); }
+  .feedback-item img { max-width: 260px; border-radius: 6px; border: 1px solid var(--border); margin-top: 0.5rem; display: block; }
+  .empty-note { color: var(--muted); font-size: 0.9rem; font-style: italic; }
+
+  footer {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 1.5rem 3rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+</style>
+
+<div class="topbar">
+  <span class="badge">NHS</span>
+  <span class="title">Hospital Reception Interpreter — Testing Guide</span>
+</div>
+
+<main>
+  <h1>Help us test the interpreter</h1>
+  <p class="subtitle">About 10 minutes. You'll play both the receptionist and the patient on one device, try a couple of languages, and tell us what happened. No account or install needed.</p>
+
+  <section class="card">
+    <h2><span class="step-num">1</span>Open the app</h2>
+    <div class="link-box">
+      <a href="https://nhsspeech.ngrok.dev" target="_blank" rel="noopener">nhsspeech.ngrok.dev</a>
+      <button class="copy-btn" type="button" onclick="copyLink(this)">Copy link</button>
+    </div>
+    <p>Open it on a phone, tablet, or laptop with a working microphone. When your browser asks for microphone permission, choose <strong>Allow</strong> — without it, nothing will work.</p>
+    <div class="callout info">
+      <span class="icon">🔇</span>
+      <span>Test somewhere reasonably quiet if you can. Background noise (a busy ward, a TV) makes it harder for the app to hear you clearly, which is exactly the kind of thing we want to know about — but it helps to know that's <em>why</em> something didn't work.</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step-num">2</span>Start a conversation</h2>
+    <ol>
+      <li>Tap <strong>New Patient</strong>.</li>
+      <li>Choose <strong>This tablet</strong> (you'll play both people on the one screen — simplest for testing solo).</li>
+      <li>Pick a language for the <strong>patient</strong> and a language for the <strong>receptionist</strong> (English is a safe default for the receptionist side).</li>
+      <li>Tap <strong>Start conversation</strong>.</li>
+    </ol>
+    <div class="screenshot-cue">📸 Good moment for a screenshot if the language list looks wrong or a language you expected isn't there.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step-num">3</span>Have the conversation</h2>
+    <p>Press and hold the green <strong>Hold to talk</strong> button under <strong>Receptionist</strong>, say something, then let go. Wait for the reply, then do the same under <strong>Patient</strong> — speaking in the patient's language this time. Go back and forth a few times like a real check-in conversation.</p>
+    <p>Not sure what to say? A few starters:</p>
+    <table class="phrase-table">
+      <tr><th>Role</th><th>Try saying</th></tr>
+      <tr><td>Receptionist</td><td>"Hello, thanks for coming in. What's the trouble today?"</td></tr>
+      <tr><td>Patient</td><td>"I've had a headache since yesterday and I feel a bit dizzy."</td></tr>
+      <tr><td>Receptionist</td><td>"Okay, take a seat and someone will see you shortly."</td></tr>
+    </table>
+    <div class="callout info">
+      <span class="icon">🔊</span>
+      <span>Turn your volume up — replies play as speech, not just text on screen.</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step-num">4</span>End and finish up</h2>
+    <p>Tap <strong>End Session</strong>. You'll see an estimated usage figure and, after a short pause, suggested clinical codes based on the conversation — that's expected, not a bug. Tap <strong>Back to reception desk</strong> when you're done.</p>
+  </section>
+
+  <section class="card">
+    <h2>Languages you can test</h2>
+    <p>Pick any of these when setting up a conversation.</p>
+    <div class="lang-grid">
+      <span class="lang-pill">English</span>
+      <span class="lang-pill">Polish</span>
+      <span class="lang-pill">Romanian</span>
+      <span class="lang-pill">Arabic</span>
+      <span class="lang-pill">Portuguese</span>
+      <span class="lang-pill">Spanish</span>
+      <span class="lang-pill">French</span>
+      <span class="lang-pill">Mandarin</span>
+      <span class="lang-pill">Turkish</span>
+      <span class="lang-pill">Bengali</span>
+      <span class="lang-pill">Farsi/Dari</span>
+      <span class="lang-pill">Vietnamese</span>
+      <span class="lang-pill">Punjabi</span>
+      <span class="lang-pill">Urdu</span>
+      <span class="lang-pill">Somali</span>
+      <span class="lang-pill">Pashto</span>
+      <span class="lang-pill">Tigrinya</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Tell us what happened</h2>
+    <p id="feedback-status">Loading…</p>
+
+    <form id="feedback-form">
+      <div class="field">
+        <label for="f-name">Your name <span class="hint">(so we can follow up if useful)</span></label>
+        <input type="text" id="f-name" placeholder="e.g. Priya Sharma" required>
+      </div>
+
+      <div class="field">
+        <label for="f-lang">Which language(s) did you test?</label>
+        <input type="text" id="f-lang" placeholder="e.g. Punjabi, or Spanish and Somali" required>
+      </div>
+
+      <div class="field">
+        <label>Overall, how did it go?</label>
+        <div class="radio-row">
+          <label><input type="radio" name="outcome" value="worked" checked> Worked well</label>
+          <label><input type="radio" name="outcome" value="issue"> Something was wrong</label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-notes">What happened? <span class="hint">Be as specific as you can — what you said, what you saw/heard</span></label>
+        <textarea id="f-notes" placeholder="e.g. Said 'I have a headache' in Urdu, the receptionist screen showed something completely unrelated in Russian-looking text." required></textarea>
+      </div>
+
+      <div class="field">
+        <label for="f-screenshot">Screenshot <span class="hint">(optional, but very helpful for anything that looked wrong)</span></label>
+        <input type="file" id="f-screenshot" accept="image/*">
+      </div>
+
+      <button type="submit" class="submit-btn" id="f-submit">Submit feedback</button>
+      <div class="toast" id="f-toast" hidden></div>
+    </form>
+  </section>
+
+  <section class="card" id="feedback-list-card">
+    <h2>What testers have reported so far</h2>
+    <div id="feedback-list"><p class="empty-note">Loading…</p></div>
+  </section>
+</main>
+
+<footer>
+  Testing the interpreter app at nhsspeech.ngrok.dev. Questions? Ask whoever sent you this link.
+</footer>
+
+<script>
+  function copyLink(btn) {
+    navigator.clipboard?.writeText('https://nhsspeech.ngrok.dev').then(() => {
+      const original = btn.textContent
+      btn.textContent = 'Copied!'
+      setTimeout(() => { btn.textContent = original }, 1500)
+    }).catch(() => {})
+  }
+
+  let db = null
+  let assets = null
+
+  function escapeHtml(s) {
+    const d = document.createElement('div')
+    d.textContent = s
+    return d.innerHTML
+  }
+
+  function renderFeedback(docs) {
+    const listEl = document.getElementById('feedback-list')
+    if (!docs.length) {
+      listEl.innerHTML = '<p class="empty-note">No feedback submitted yet — be the first!</p>'
+      return
+    }
+    const sorted = docs.slice().sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''))
+    listEl.innerHTML = sorted.map((f) => {
+      const pillClass = f.outcome === 'issue' ? 'issue' : 'worked'
+      const pillText = f.outcome === 'issue' ? 'Issue' : 'Worked well'
+      const when = f.submittedAt ? new Date(f.submittedAt).toLocaleString() : ''
+      const img = f.screenshotId ? `<img src="/_blob/${f.screenshotId}" alt="Screenshot from ${escapeHtml(f.name || 'tester')}">` : ''
+      return `<div class="feedback-item">
+        <div class="meta">
+          <span class="outcome-pill ${pillClass}">${pillText}</span>
+          <strong>${escapeHtml(f.name || 'Anonymous')}</strong>
+          <span>· ${escapeHtml(f.language || '')}</span>
+          <span>· ${when}</span>
+        </div>
+        <div>${escapeHtml(f.notes || '')}</div>
+        ${img}
+      </div>`
+    }).join('')
+  }
+
+  async function init() {
+    const statusEl = document.getElementById('feedback-status')
+    try {
+      db = await Promise.race([
+        window.claude?.use ? window.claude.use('db') : Promise.resolve(null),
+        new Promise((resolve) => setTimeout(() => resolve(null), 10000)),
+      ])
+    } catch (e) { db = null }
+
+    if (!db) {
+      statusEl.textContent = 'Feedback form is unavailable in this view — please message your notes and a screenshot directly instead.'
+      document.getElementById('f-submit').disabled = true
+      document.getElementById('feedback-list').innerHTML = '<p class="empty-note">Feedback list unavailable in this view.</p>'
+      return
+    }
+    statusEl.textContent = 'Fill in the form below — submissions save here so the team can see them directly.'
+
+    try {
+      assets = window.claude?.use ? await window.claude.use('assets') : null
+    } catch (e) { assets = null }
+
+    try {
+      const snap = await db.collection('feedback').get()
+      renderFeedback(snap.docs.map((d) => d.data()))
+    } catch (e) {
+      document.getElementById('feedback-list').innerHTML = '<p class="empty-note">Could not load feedback yet.</p>'
+    }
+
+    db.collection('feedback').onSnapshot(
+      (snap) => renderFeedback(snap.docs.map((d) => d.data())),
+      () => {}
+    )
+  }
+
+  document.getElementById('feedback-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const submitBtn = document.getElementById('f-submit')
+    const toast = document.getElementById('f-toast')
+    toast.hidden = true
+    if (!db) return
+
+    submitBtn.disabled = true
+    submitBtn.textContent = 'Submitting…'
+
+    try {
+      const name = document.getElementById('f-name').value.trim()
+      const language = document.getElementById('f-lang').value.trim()
+      const outcome = document.querySelector('input[name=outcome]:checked').value
+      const notes = document.getElementById('f-notes').value.trim()
+      const fileInput = document.getElementById('f-screenshot')
+
+      let screenshotId = null
+      if (fileInput.files[0] && assets) {
+        const uploaded = await assets.upload(fileInput.files[0])
+        screenshotId = uploaded.id
+      }
+
+      await db.collection('feedback').add({
+        name, language, outcome, notes, screenshotId,
+        submittedAt: new Date().toISOString(),
+      })
+
+      toast.className = 'toast ok'
+      toast.textContent = 'Thanks — your feedback has been recorded.'
+      toast.hidden = false
+      e.target.reset()
+    } catch (err) {
+      toast.className = 'toast err'
+      toast.textContent = 'Something went wrong submitting that — please try again, or message your notes directly.'
+      toast.hidden = false
+    } finally {
+      submitBtn.disabled = false
+      submitBtn.textContent = 'Submit feedback'
+    }
+  })
+
+  init()
+</script>

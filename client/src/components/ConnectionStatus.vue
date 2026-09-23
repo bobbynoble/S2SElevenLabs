@@ -20,6 +20,7 @@ const LABELS = {
   processing: 'Translating…',
   speaking: 'Playing translation…',
   ended: 'Session ended',
+  coding: 'Determining clinical code…',
   session_expired: 'Session expired',
   error: 'Something went wrong',
 }
@@ -59,8 +60,30 @@ const label = computed(() => {
 .connection-status.speaking .dot {
   background: var(--color-accent);
 }
-.connection-status.processing .dot {
+.connection-status.processing .dot,
+.connection-status.speaking .dot,
+.connection-status.coding .dot {
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+.connection-status.processing .dot,
+.connection-status.coding .dot {
   background: #ffb81c;
+}
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connection-status.processing .dot,
+  .connection-status.speaking .dot,
+  .connection-status.coding .dot {
+    animation: none;
+  }
 }
 .connection-status.ended,
 .connection-status.session_expired,

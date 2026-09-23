@@ -5,19 +5,24 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from . import pipeline
-from .languages import is_supported
+from . import clinical_coding, elevenlabs_client, pipeline
+from .languages import is_supported, is_tts_supported
 from .models import ClientMessageEnvelope, Speaker
 from .pipeline import TurnResult
-from .session_manager import Session, SessionStatus, manager
+from .session_manager import Session, SessionStatus, TurnRecord, manager
 
 logger = logging.getLogger(__name__)
+
+# Kill switch for the clinical-coding step -- e.g. while the coding service's own upstream
+# (Azure OpenAI/Search) is down, so a demo session ending doesn't surface a coding_failed error.
+CLINICAL_CODING_ENABLED = os.getenv("CLINICAL_CODING_ENABLED", "true").strip().lower() != "false"
 
 
 def _now() -> datetime:
@@ -132,6 +137,8 @@ async def _handle_control_message(
         if speaker == "receptionist":
             manager.end_session(session)
             await _broadcast_status(session, "ended")
+            await _send_usage_summary(session)
+            await _run_clinical_coding(session)
         return turn_active, turn_buffer
 
     return turn_active, turn_buffer
@@ -141,21 +148,111 @@ async def _process_turn(session: Session, speaker: Speaker, audio_bytes: bytes) 
     await _broadcast_status(session, "processing")
     turn_id = uuid.uuid4().hex
 
+    session.total_stt_seconds += len(audio_bytes) / 2 / elevenlabs_client.PCM_SAMPLE_RATE_HZ
+
     try:
         result = await pipeline.run_turn(session, speaker, audio_bytes)
     except pipeline.PipelineError as exc:
         await _send_error(session, speaker, exc.code, exc.message)
         return
 
+    session.total_tts_characters += len(result.translated_text)
+    session.turns.append(
+        TurnRecord(
+            speaker=speaker,
+            original_text=result.original_text,
+            original_lang=result.original_lang,
+            translated_text=result.translated_text,
+            translated_lang=result.translated_lang,
+            at=_now(),
+        )
+    )
+
     await _broadcast_caption(session, speaker, result, turn_id)
 
-    if result.audio:
-        listener_ws = session.receptionist_ws if speaker == "patient" else session.patient_ws
-        if listener_ws is not None:
-            await _broadcast_status(session, "speaking")
-            await listener_ws.send_json({"type": "audio_reply_start", "turn_id": turn_id})
-            await listener_ws.send_bytes(result.audio)
-            await listener_ws.send_json({"type": "audio_reply_end", "turn_id": turn_id})
+    if not is_tts_supported(result.translated_lang):
+        return
+    listener_ws = session.receptionist_ws if speaker == "patient" else session.patient_ws
+    if listener_ws is None:
+        return
+
+    await _broadcast_status(session, "speaking")
+    await listener_ws.send_json({"type": "audio_reply_start", "turn_id": turn_id})
+    try:
+        async for pcm_chunk in elevenlabs_client.synthesize_stream(
+            result.translated_text, language=result.translated_lang
+        ):
+            await listener_ws.send_bytes(pcm_chunk)
+    except elevenlabs_client.ElevenLabsError as exc:
+        logger.warning("Turn %s (%s): TTS streaming failed: %s", turn_id, speaker, exc)
+        await _send_error(session, speaker, "tts_failed", str(exc))
+        return
+    await listener_ws.send_json({"type": "audio_reply_end", "turn_id": turn_id})
+
+
+async def _send_usage_summary(session: Session) -> None:
+    """Once the receptionist ends the session, report the ElevenLabs API usage/estimated cost
+    for it. Receptionist-only -- this is an operational figure, not patient-facing."""
+    if session.receptionist_ws is None:
+        return
+    await session.receptionist_ws.send_json(
+        {
+            "type": "usage",
+            "stt_seconds": round(session.total_stt_seconds, 2),
+            "tts_characters": session.total_tts_characters,
+            "estimated_cost_usd": round(
+                elevenlabs_client.estimated_cost_usd(session.total_stt_seconds, session.total_tts_characters), 4
+            ),
+        }
+    )
+
+
+def _transcript_note(session: Session) -> str:
+    """Build a single-language conversation note for the clinical coding service: whichever side
+    of each turn was spoken/heard in the receptionist's own language, so the note reads as one
+    coherent conversation rather than a mix of source and translated text."""
+    lines = []
+    for turn in session.turns:
+        text = turn.translated_text if turn.speaker == "patient" else turn.original_text
+        label = "Patient" if turn.speaker == "patient" else "Receptionist"
+        lines.append(f"{label}: {text}")
+    return "\n".join(lines)
+
+
+async def _run_clinical_coding(session: Session) -> None:
+    """Once the receptionist ends the session, send the finished transcript to the clinical
+    coding service and pass the suggested codes back to the receptionist for review. Coding is
+    a clinical-staff concern, so the result (and any failure) goes to the receptionist only,
+    never the patient."""
+    if not CLINICAL_CODING_ENABLED or not session.turns or session.receptionist_ws is None:
+        return
+
+    await _send_status(session.receptionist_ws, "coding")
+
+    try:
+        result = await clinical_coding.get_clinical_code(_transcript_note(session))
+    except clinical_coding.ClinicalCodingError as exc:
+        await _send_error(session, "receptionist", "coding_failed", str(exc))
+        return
+
+    if session.receptionist_ws is not None:
+        await session.receptionist_ws.send_json(
+            {
+                "type": "clinical_code",
+                "suggestions": [
+                    {
+                        "code": s.code,
+                        "system": s.system,
+                        "description": s.description,
+                        "justification": s.justification,
+                        "confidence": s.confidence,
+                        "review_flag": s.review_flag,
+                    }
+                    for s in result.suggestions
+                ],
+                "coding_notes": result.coding_notes,
+            }
+        )
 
 
 async def _send_status(websocket: WebSocket, state: str, detail: str | None = None) -> None:

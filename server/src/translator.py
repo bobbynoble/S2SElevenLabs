@@ -14,8 +14,33 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
 SYSTEM_PROMPT = (
     "You are a precise reception/medical interpreter for a hospital front desk. "
     "Translate the given text exactly, preserving meaning and tone. "
-    "Output ONLY the translation -- no commentary, no notes, no quotation marks."
+    "Output ONLY the translation -- no commentary, no notes, no quotation marks. "
+    "Even if the input is unclear, garbled, or appears to mix scripts or languages, still "
+    "produce your best-effort literal translation of it. Never ask a clarifying question, "
+    "never explain difficulty, and never request the text in a different format -- a hospital "
+    "receptionist or patient will hear your output spoken aloud as if it came directly from "
+    "the other person."
 )
+
+# Claude occasionally breaks the "output only the translation" instruction and responds
+# conversationally instead -- e.g. asking for the text in a different script when the input is
+# garbled. Left unchecked, that commentary gets spoken aloud to the receptionist or patient as
+# if it were the other person's real words (confirmed live: a native Punjabi speaker's answer,
+# mistranscribed by STT into unrelated Cyrillic text, produced a Claude response asking for
+# "standard Punjabi script" instead of a translation -- which TTS then read out loud). A literal
+# translation should never contain first-person commentary about the task itself, so treat any
+# of these as a strong signal the response isn't a translation at all.
+_COMMENTARY_MARKERS = (
+    "i'm having difficulty", "i am having difficulty", "i cannot", "i can't", "i'm not able",
+    "i am not able", "as an ai", "could you please provide", "please provide the text",
+    "let me know if", "i need more context", "could you clarify", "translation challenging",
+    "doesn't make sense", "does not make sense", "i'm unable", "i am unable",
+)
+
+
+def _looks_like_commentary(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in _COMMENTARY_MARKERS)
 
 
 class TranslationError(Exception):
@@ -54,4 +79,11 @@ async def translate(text: str, source_lang: str, target_lang: str) -> str:
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise TranslationError("Claude returned no text content for the translation.")
-    return text_block.text.strip()
+    translated = text_block.text.strip()
+
+    if _looks_like_commentary(translated):
+        raise TranslationError(
+            "Claude responded with commentary instead of a translation (likely garbled/unclear input)."
+        )
+
+    return translated

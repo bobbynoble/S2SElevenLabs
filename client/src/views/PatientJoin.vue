@@ -9,6 +9,7 @@
         <button type="button" class="btn btn-primary continue" :disabled="!selectedLanguage" @click="confirmLanguage">
           Continue
         </button>
+        <p class="privacy-note">Your conversation is interpreted live and isn't saved once the session ends.</p>
       </template>
 
       <template v-else>
@@ -125,6 +126,12 @@ h1 {
 }
 .continue {
   font-size: 1.1rem;
+}
+.privacy-note {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0;
 }
 .noise-control {
   display: flex;

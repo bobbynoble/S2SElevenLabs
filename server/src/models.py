@@ -20,6 +20,7 @@ class LanguageInfo(BaseModel):
     native_name: str
     stt_supported: bool
     tts_supported: bool
+    stt_low_confidence: bool = False
 
 
 class CreateSessionResponse(BaseModel):
@@ -70,15 +71,18 @@ StatusState = Literal[
     "processing",
     "speaking",
     "ended",
+    "coding",
     "session_expired",
 ]
 
 ErrorCode = Literal[
     "stt_failed",
+    "stt_low_confidence",
     "translation_failed",
     "tts_failed",
     "tts_unsupported_language",
     "session_expired",
+    "coding_failed",
 ]
 
 Speaker = Literal["patient", "receptionist"]
@@ -114,3 +118,25 @@ class ErrorMessage(BaseModel):
     type: Literal["error"] = "error"
     code: ErrorCode
     message: str
+
+
+class ClinicalCodeSuggestion(BaseModel):
+    code: str
+    system: str
+    description: str | None = None
+    justification: str | None = None
+    confidence: str | None = None
+    review_flag: str | None = None
+
+
+class ClinicalCodeMessage(BaseModel):
+    type: Literal["clinical_code"] = "clinical_code"
+    suggestions: list[ClinicalCodeSuggestion]
+    coding_notes: str | None = None
+
+
+class UsageMessage(BaseModel):
+    type: Literal["usage"] = "usage"
+    stt_seconds: float
+    tts_characters: int
+    estimated_cost_usd: float

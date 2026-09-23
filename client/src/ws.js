@@ -18,6 +18,7 @@ function createSocket(path, { onMessage, onClose } = {}) {
   let open = false
 
   socket.addEventListener('open', () => {
+    console.log(`[ws] connected: ${path}`)
     open = true
     for (const payload of pending) socket.send(payload)
     pending.length = 0
@@ -29,13 +30,39 @@ function createSocket(path, { onMessage, onClose } = {}) {
       onMessage?.(null, event.data)
     }
   })
-  socket.addEventListener('close', () => onClose?.())
+  // No standard WebSocket API exposes *why* a connection failed -- the 'error' event carries
+  // no detail (that's the browser's own choice, not something we can improve on here), but
+  // without even this listener a connection that never opens fails completely silently: no
+  // console output, no thrown exception, nothing -- messages just queue forever in `pending`.
+  socket.addEventListener('error', () => {
+    console.error(`[ws] connection error: ${path} (readyState=${socket.readyState})`)
+  })
+  socket.addEventListener('close', (event) => {
+    console.log(`[ws] closed: ${path} (code=${event.code}, wasOpen=${open})`)
+    // Without this, a socket that drops after a successful handshake (a real risk over a
+    // mobile network through a tunnel, e.g. an idle timeout while someone lingers on the
+    // language picker) leaves `open` stuck true forever. Every later send() would then call
+    // socket.send() on an already-closed socket, which throws synchronously -- silently, as
+    // an unhandled rejection inside the caller's async handler, with no visible sign anything
+    // is wrong (a button's pressed/active state is separate local UI state, unrelated to
+    // whether the underlying socket is still alive).
+    open = false
+    onClose?.()
+  })
 
   function send(payload) {
-    if (open) {
-      socket.send(payload)
-    } else {
+    if (!open) {
       pending.push(payload)
+      return
+    }
+    try {
+      socket.send(payload)
+    } catch (err) {
+      // The 'close' event can lag behind the socket actually dying, so still guard the send
+      // itself -- report at the source that the connection is gone instead of failing silently.
+      console.error('WebSocket send failed -- connection is no longer open:', err)
+      open = false
+      onClose?.()
     }
   }
 

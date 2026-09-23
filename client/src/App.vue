@@ -62,7 +62,10 @@ button:focus-visible,
   font-weight: 700;
   cursor: pointer;
   min-height: 48px;
+  min-width: 48px;
   transition: background-color 0.1s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .btn:disabled {
   cursor: not-allowed;

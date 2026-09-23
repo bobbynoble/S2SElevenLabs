@@ -64,5 +64,22 @@ defineExpose({ forceRelease: onRelease })
   background: var(--color-error);
   box-shadow: 0 4px 0 #8f1c12;
   transform: translateY(2px);
+  animation: mic-pulse 1.4s ease-out infinite;
+}
+@keyframes mic-pulse {
+  0% {
+    box-shadow: 0 4px 0 #8f1c12, 0 0 0 0 rgba(213, 40, 27, 0.45);
+  }
+  70% {
+    box-shadow: 0 4px 0 #8f1c12, 0 0 0 14px rgba(213, 40, 27, 0);
+  }
+  100% {
+    box-shadow: 0 4px 0 #8f1c12, 0 0 0 0 rgba(213, 40, 27, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mic-button.active {
+    animation: none;
+  }
 }
 </style>

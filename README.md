@@ -12,6 +12,7 @@ audio. All speech-to-text, translation, and text-to-speech happens server-side.
 - **Backend:** Python 3.11+, FastAPI + Uvicorn, WebSockets for the live audio/caption relay
 - **Speech (STT + TTS):** ElevenLabs API
 - **Translation:** Claude (Anthropic API)
+- **Clinical coding:** Claude (Anthropic API), post-session only — see "How it works" below
 - **Frontend:** Vue 3 + Composition API + Vite
 - **Deployment target:** Azure UK South (Container Apps) — see `infra/`
 
@@ -43,9 +44,11 @@ open http://localhost:8010/docs
 
 1. Copy `.env.example` to `.env` (never commit `.env`)
 2. Set `ELEVENLABS_API_KEY` — required
-3. Set `ANTHROPIC_API_KEY` — required (used for the translation step)
+3. Set `ANTHROPIC_API_KEY` — required (used for the translation step and post-session clinical coding)
 4. Set `SESSION_API_KEY` — optional; when set, `POST /api/sessions` requires `X-API-Key: <value>`
 5. Set `CORS_ORIGINS` — optional; defaults to `*`
+6. Set `CLINICAL_CODING_ENABLED` — optional; defaults to `true`, set to `false` to skip the
+   post-session clinical coding step entirely
 
 ## Directory Structure
 
@@ -72,6 +75,11 @@ open http://localhost:8010/docs
    - sends both a caption (original + translated text, to both screens) and the synthesized
      audio (to the listener only).
 5. Either party can end the session; the kiosk then produces a fresh QR for the next patient.
+6. When the receptionist ends the session, the backend reports the session's estimated ElevenLabs
+   API cost (STT seconds + TTS characters) to the receptionist, then sends the full transcript to
+   a local clinical-coding step (a curated ICD-10 reference set + Claude) and returns suggested
+   codes for review. This step never runs before the session ends, and its result goes to the
+   receptionist only.
 
 ## Compliance notes (read before deploying for real NHS use)
 

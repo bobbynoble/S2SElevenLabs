@@ -163,6 +163,20 @@ async def test_synthesize_stream_raises_on_api_error(monkeypatch):
         await _collect(elevenlabs_client.synthesize_stream("hello"))
 
 
+async def test_transcribe_and_synthesize_request_zero_retention(monkeypatch):
+    fake_stt = _FakeSpeechToText(response=_FakeSTTResponse(text="hello", language_code="en"))
+    fake_tts = _FakeTextToSpeech(chunks=[b"audio"])
+    monkeypatch.setattr(elevenlabs_client, "_client", _FakeClient(stt=fake_stt, tts=fake_tts))
+    monkeypatch.setattr(elevenlabs_client, "ELEVENLABS_DEFAULT_VOICE_ID", "voice-123")
+
+    await elevenlabs_client.transcribe(b"\x00\x01" * 50)
+    await _collect(elevenlabs_client.synthesize_stream("hello"))
+
+    assert fake_stt.calls[0]["enable_logging"] is False
+    _voice_id, kwargs = fake_tts.calls[0]
+    assert kwargs["enable_logging"] is False
+
+
 def test_estimated_cost_usd_combines_stt_and_tts():
     monkeypatch_stt = elevenlabs_client.STT_PRICE_PER_SECOND
     monkeypatch_tts = elevenlabs_client.TTS_PRICE_PER_CHAR

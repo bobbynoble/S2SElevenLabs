@@ -40,6 +40,10 @@ EXTENDED_MODEL_LANGUAGES = {"pa", "ur", "bn", "so", "fa", "ps", "vi", "sw", "ha"
 
 PCM_SAMPLE_RATE_HZ = 16000
 
+# Both calls below send enable_logging=False (ElevenLabs Zero Retention Mode, Enterprise-only):
+# patient audio and text are held only in memory for the request and never stored. Without it,
+# every request was confirmed live to land in the account's history, stored in the US by default.
+
 # From this workspace's own Enterprise API pricing (Subscription.docx): Scribe v2 STT is
 # $0.22/hour, Multilingual v2 and v3 TTS are both $100/1M characters.
 STT_PRICE_PER_SECOND = float(os.getenv("ELEVENLABS_STT_PRICE_PER_HOUR", "0.22")) / 3600
@@ -85,7 +89,7 @@ def _pcm16_to_wav(pcm_bytes: bytes, sample_rate: int = PCM_SAMPLE_RATE_HZ) -> by
 
 async def transcribe(pcm_audio: bytes, language_hint: str | None = None) -> TranscriptResult:
     wav_bytes = _pcm16_to_wav(pcm_audio)
-    kwargs = {"model_id": STT_MODEL_ID, "file": ("turn.wav", wav_bytes, "audio/wav")}
+    kwargs = {"model_id": STT_MODEL_ID, "file": ("turn.wav", wav_bytes, "audio/wav"), "enable_logging": False}
     if language_hint:
         kwargs["language_code"] = language_hint
 
@@ -116,7 +120,7 @@ async def synthesize_stream(text: str, language: str | None = None, voice_id: st
         raise ElevenLabsError("No ElevenLabs voice_id configured (ELEVENLABS_DEFAULT_VOICE_ID).")
 
     model_id = TTS_EXTENDED_MODEL_ID if language in EXTENDED_MODEL_LANGUAGES else TTS_MODEL_ID
-    kwargs = {"model_id": model_id, "output_format": "pcm_16000"}
+    kwargs = {"model_id": model_id, "output_format": "pcm_16000", "enable_logging": False}
     # eleven_v3 rejects this param outright (confirmed live: 400 unsupported_model) -- it's only
     # meaningful for the faster default model.
     if model_id != TTS_EXTENDED_MODEL_ID:

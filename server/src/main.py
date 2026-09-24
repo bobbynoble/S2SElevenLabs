@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI):
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Hospital Reception Speech-to-Speech Interpreter",
+    title="DXC Demo for NHS Participants",
     description=(
         "Live multilingual speech-to-speech interpreter for hospital reception desks. "
         "ElevenLabs performs speech-to-text and text-to-speech; Claude performs the "

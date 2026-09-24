@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from src import elevenlabs_client, pipeline, translator
+from src.languages import script_mismatch
 from src.session_manager import Session
 
 
@@ -92,11 +93,11 @@ async def test_run_turn_passes_correctly_scripted_punjabi(monkeypatch):
 
 
 def test_script_mismatch_ignores_languages_without_a_defined_script():
-    assert pipeline._script_mismatch("anything at all", "en") is False
+    assert script_mismatch("anything at all", "en") is False
 
 
 def test_script_mismatch_ignores_very_short_transcripts():
-    assert pipeline._script_mismatch("ਹਾਂ", "pa") is False
+    assert script_mismatch("ਹਾਂ", "pa") is False
 
 
 async def test_run_turn_translates_when_confidence_signal_unavailable(monkeypatch):

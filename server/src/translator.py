@@ -7,7 +7,7 @@ import os
 
 import anthropic
 
-from .languages import english_name_for
+from .languages import english_name_for, script_mismatch
 
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
 
@@ -35,6 +35,8 @@ _COMMENTARY_MARKERS = (
     "i am not able", "as an ai", "could you please provide", "please provide the text",
     "let me know if", "i need more context", "could you clarify", "translation challenging",
     "doesn't make sense", "does not make sense", "i'm unable", "i am unable",
+    "wait, let me", "let me provide", "actually, here is", "here is the correct",
+    "here is the proper",
 )
 
 
@@ -84,6 +86,10 @@ async def translate(text: str, source_lang: str, target_lang: str) -> str:
     if _looks_like_commentary(translated):
         raise TranslationError(
             "Claude responded with commentary instead of a translation (likely garbled/unclear input)."
+        )
+    if script_mismatch(translated, target_lang):
+        raise TranslationError(
+            f"Claude's translation isn't in the expected {english_name_for(target_lang)} script."
         )
 
     return translated

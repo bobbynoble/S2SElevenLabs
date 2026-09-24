@@ -10,6 +10,18 @@ import anthropic
 from .languages import english_name_for, script_mismatch
 
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+# Haiku mistranslated most test phrases for these languages (e.g. Somali "Are you allergic to any
+# medication?" -> "Does everyone succeed with the treatment?"), while Sonnet/Opus got them all
+# right. Only Opus's Somali also survived the full TTS -> STT round trip on every phrase. Used
+# whenever either side of the turn is one of these languages. Format: "so:model,ps:model".
+# Interim measure until ElevenLabs Realtime Translate replaces this pipeline.
+_LANGUAGE_MODELS: dict[str, str] = dict(
+    pair.split(":", 1)
+    for pair in os.getenv(
+        "ANTHROPIC_LANGUAGE_MODELS", "so:claude-opus-5-5,ps:claude-sonnet-5,pa:claude-sonnet-5"
+    ).split(",")
+    if pair.strip()
+)
 
 SYSTEM_PROMPT = (
     "You are a precise reception/medical interpreter for a hospital front desk. "
@@ -62,7 +74,7 @@ async def translate(text: str, source_lang: str, target_lang: str) -> str:
     )
     try:
         response = await client.messages.create(
-            model=ANTHROPIC_MODEL,
+            model=_LANGUAGE_MODELS.get(target_lang) or _LANGUAGE_MODELS.get(source_lang) or ANTHROPIC_MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],

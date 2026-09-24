@@ -33,6 +33,19 @@ async def test_translate_calls_claude_with_language_names(monkeypatch):
     assert "Polish" in prompt
 
 
+async def test_translate_uses_language_specific_model_for_either_side(monkeypatch):
+    response = SimpleNamespace(content=[SimpleNamespace(type="text", text="Hello")])
+    fake_client = _FakeAnthropicClient(response)
+    monkeypatch.setattr(translator.anthropic, "AsyncAnthropic", lambda: fake_client)
+    monkeypatch.setattr(translator, "_LANGUAGE_MODELS", {"so": "strong-model"})
+
+    await translator.translate("Salaan", "so", "en")
+    assert fake_client.messages.last_kwargs["model"] == "strong-model"
+
+    await translator.translate("Cześć", "pl", "en")
+    assert fake_client.messages.last_kwargs["model"] == translator.ANTHROPIC_MODEL
+
+
 async def test_translate_skips_api_call_for_identical_languages(monkeypatch):
     def fail_client():
         raise AssertionError("Should not construct a client for identical source/target languages")

@@ -32,7 +32,7 @@ def test_unknown_code_is_not_supported():
 
 
 def test_extended_model_languages_have_tts_support():
-    for code in ("pa", "ur", "bn", "so", "fa", "ps", "vi"):
+    for code in ("pa", "ur", "bn", "so", "fa", "ps", "vi", "sw", "ha", "lg", "rw", "luo", "twi"):
         lang = get_language(code)
         assert lang is not None
         assert lang.stt_supported is True
@@ -49,14 +49,14 @@ def test_tigrinya_is_stt_only():
 def test_languages_with_known_stt_accuracy_problems_are_flagged():
     # Sourced from ElevenLabs' own published Scribe WER tiers (so/ur/ps) and live testing on
     # this app (pa failed on a real speaker, ti returns unrelated text) -- see languages.py.
-    for code in ("pa", "ur", "so", "ps", "ti"):
+    for code in ("pa", "ur", "so", "ps", "ti", "lg", "rw", "luo", "twi"):
         lang = get_language(code)
         assert lang is not None
         assert lang.stt_low_confidence is True
 
 
 def test_reliable_languages_are_not_flagged():
-    for code in ("en", "pl", "fr", "bn", "fa", "vi"):
+    for code in ("en", "pl", "fr", "bn", "fa", "vi", "sw", "ha"):
         lang = get_language(code)
         assert lang is not None
         assert lang.stt_low_confidence is False

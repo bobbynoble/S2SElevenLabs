@@ -18,7 +18,13 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
 _LANGUAGE_MODELS: dict[str, str] = dict(
     pair.split(":", 1)
     for pair in os.getenv(
-        "ANTHROPIC_LANGUAGE_MODELS", "so:claude-opus-5-5,ps:claude-sonnet-5,pa:claude-sonnet-5"
+        "ANTHROPIC_LANGUAGE_MODELS",
+        (
+            "so:claude-opus-5-5,ps:claude-sonnet-5,pa:claude-sonnet-5,"
+            # Uganda/Ghana languages were only verified with Opus.
+            "sw:claude-opus-5-5,ha:claude-opus-5-5,lg:claude-opus-5-5,rw:claude-opus-5-5,"
+            "luo:claude-opus-5-5,twi:claude-opus-5-5"
+        ),
     ).split(",")
     if pair.strip()
 )

@@ -36,7 +36,7 @@ TTS_EXTENDED_MODEL_ID = os.getenv("ELEVENLABS_TTS_EXTENDED_MODEL_ID", "eleven_v3
 # Languages eleven_multilingual_v2 doesn't cover but eleven_v3 does -- confirmed by
 # round-tripping generated audio back through Scribe STT and getting the original text back.
 # eleven_v3 is noticeably slower per call, so it's used only for these, not as the default.
-EXTENDED_MODEL_LANGUAGES = {"pa", "ur", "bn", "so", "fa", "ps", "vi"}
+EXTENDED_MODEL_LANGUAGES = {"pa", "ur", "bn", "so", "fa", "ps", "vi", "sw", "ha", "lg", "rw", "luo", "twi"}
 
 PCM_SAMPLE_RATE_HZ = 16000
 

@@ -78,6 +78,7 @@ StatusState = Literal[
 ErrorCode = Literal[
     "stt_failed",
     "stt_low_confidence",
+    "same_language",
     "translation_failed",
     "tts_failed",
     "tts_unsupported_language",

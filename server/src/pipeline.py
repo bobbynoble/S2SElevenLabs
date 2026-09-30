@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 
 from . import elevenlabs_client, translator
-from .languages import script_mismatch
+from .languages import english_name_for, script_mismatch
 from .models import ErrorCode, Speaker
 from .session_manager import Session
 
@@ -38,6 +38,16 @@ def _langs_for(session: Session, speaker: Speaker) -> tuple[str, str]:
 
 async def run_turn(session: Session, speaker: Speaker, audio_bytes: bytes) -> TurnResult:
     source_lang, target_lang = _langs_for(session, speaker)
+
+    # Confirmed live: testers set both sides to Hausa (and separately both to English), and the
+    # app silently echoed every turn back untranslated. Refuse up front, before paying for STT.
+    if source_lang == target_lang:
+        raise PipelineError(
+            "same_language",
+            f"Both people are set to {english_name_for(source_lang)}, so there's nothing to translate. "
+            "End this session and start again: the reception screen picks the receptionist's own "
+            "language, and the patient picks theirs on the patient screen.",
+        )
 
     try:
         transcript = await elevenlabs_client.transcribe(audio_bytes, language_hint=source_lang)

@@ -37,6 +37,20 @@ async def test_run_turn_raises_stt_low_confidence_before_translating(monkeypatch
     assert exc_info.value.code == "stt_low_confidence"
 
 
+async def test_run_turn_refuses_same_language_on_both_sides_before_stt(monkeypatch):
+    async def fake_transcribe(audio_bytes, language_hint=None):
+        pytest.fail("transcribe() should not run when both sides share a language")
+
+    monkeypatch.setattr(elevenlabs_client, "transcribe", fake_transcribe)
+
+    session = _make_session(patient_language="ha", receptionist_language="ha")
+    with pytest.raises(pipeline.PipelineError) as exc_info:
+        await pipeline.run_turn(session, "receptionist", b"\x00\x00")
+
+    assert exc_info.value.code == "same_language"
+    assert "Hausa" in exc_info.value.message
+
+
 async def test_run_turn_translates_normally_when_confident(monkeypatch):
     async def fake_transcribe(audio_bytes, language_hint=None):
         return elevenlabs_client.TranscriptResult(text="hello", detected_language="so", min_word_logprob=-0.02)

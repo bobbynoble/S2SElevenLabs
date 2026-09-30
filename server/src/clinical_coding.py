@@ -175,7 +175,9 @@ async def get_clinical_code(note: str, systems: list[str] | None = None) -> Clin
 
     raw_suggestions = data.get("suggestions") if isinstance(data, dict) else None
     if not isinstance(raw_suggestions, list) or not raw_suggestions:
-        raise ClinicalCodingError(f"Clinical coding response had no suggestions: {data!r}")
+        # Shown to the receptionist as-is, so give Claude's reason rather than the raw dict.
+        notes = data.get("coding_notes") if isinstance(data, dict) else None
+        raise ClinicalCodingError(f"No clinical codes suggested. {notes}" if notes else "No clinical codes suggested.")
 
     suggestions = []
     for item in raw_suggestions:

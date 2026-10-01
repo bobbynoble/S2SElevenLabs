@@ -77,13 +77,6 @@ async def run_turn(session: Session, speaker: Speaker, audio_bytes: bytes) -> Tu
     except translator.TranslationError as exc:
         raise PipelineError("translation_failed", str(exc)) from exc
 
-    # TEMPORARY: logged for live quality/accuracy monitoring during testing -- remove once
-    # that's done, since this puts transcribed speech content into plain-text logs.
-    logger.info(
-        "TURN %s [%s->%s] original=%r translated=%r",
-        speaker, source_lang, target_lang, transcript.text, translated_text,
-    )
-
     return TurnResult(
         original_text=transcript.text,
         original_lang=source_lang,

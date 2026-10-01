@@ -66,6 +66,7 @@ async def _expiry_sweep_loop() -> None:
         await asyncio.sleep(_EXPIRY_SWEEP_INTERVAL_SECONDS)
         expired = manager.expire_stale_sessions()
         for session in expired:
+            manager.remove(session)
             logger.info("Session %s expired", session.id)
 
 

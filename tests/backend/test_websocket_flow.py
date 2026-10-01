@@ -291,6 +291,15 @@ def test_end_session_sends_clinical_code_to_receptionist_only(monkeypatch):
                     "coding_notes": "Single complaint.",
                 }
 
+                # Coding was the last step, so the conversation must now be gone from memory.
+                session = None
+                for _ in range(50):
+                    session = manager.get_by_id(session_id)
+                    if session is None:
+                        break
+                    time.sleep(0.01)
+                assert session is None
+
 
 def test_end_session_reports_coding_failure_to_receptionist(monkeypatch):
     _patch_run_turn(monkeypatch)

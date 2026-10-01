@@ -122,5 +122,11 @@ def script_mismatch(text: str, lang_code: str) -> bool:
     alpha_chars = [c for c in text if c.isalpha()]
     if len(alpha_chars) < _MIN_ALPHA_CHARS_FOR_SCRIPT_CHECK:
         return False
-    expected = sum(1 for c in alpha_chars if pattern.match(c))
-    return (expected / len(alpha_chars)) < _MIN_EXPECTED_SCRIPT_RATIO
+    # Plain Latin letters are left out of the ratio: Scribe Medical writes drug names in Latin
+    # inside Urdu ("میں ہر صبح Metformin, Remepro اور Atorvastatin لیتا ہوں"), which would
+    # otherwise fail a correct transcript. An all-Latin transcript is still a mismatch.
+    non_latin = [c for c in alpha_chars if not c.isascii()]
+    if not non_latin:
+        return True
+    expected = sum(1 for c in non_latin if pattern.match(c))
+    return (expected / len(non_latin)) < _MIN_EXPECTED_SCRIPT_RATIO

@@ -22,7 +22,10 @@ from elevenlabs.core.api_error import ApiError
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 ELEVENLABS_BASE_URL = os.getenv("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io")
 ELEVENLABS_DEFAULT_VOICE_ID = os.getenv("ELEVENLABS_DEFAULT_VOICE_ID", "")
-STT_MODEL_ID = os.getenv("ELEVENLABS_STT_MODEL_ID", "scribe_v2")
+# Same API and price as scribe_v2. Side-by-side on identical audio (8 languages, clean + noisy):
+# drug-name recall 82% vs 77%, median latency 0.56s vs 0.92s, and it fixed misheard clinical
+# words (Urdu "stroke" heard as "college", Somali "amoxicillin" as "amaaxas Selin").
+STT_MODEL_ID = os.getenv("ELEVENLABS_STT_MODEL_ID", "scribe_v2_medical")
 # Scribe returns a log-probability per transcribed word (range (-inf, 0], closer to 0 is more
 # confident). Calibrated live against two real failures caught in testing: a Somali round-trip
 # that silently dropped "what happened today?" had its worst word at -0.995, and a Punjabi

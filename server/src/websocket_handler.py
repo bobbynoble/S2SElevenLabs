@@ -136,9 +136,12 @@ async def _handle_control_message(
     if msg_type == "end_session":
         if speaker == "receptionist":
             manager.end_session(session)
-            await _broadcast_status(session, "ended")
-            await _send_usage_summary(session)
-            await _run_clinical_coding(session)
+            try:
+                await _broadcast_status(session, "ended")
+                await _send_usage_summary(session)
+                await _run_clinical_coding(session)
+            finally:
+                manager.remove(session)
         return turn_active, turn_buffer
 
     return turn_active, turn_buffer

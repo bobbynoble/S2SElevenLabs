@@ -106,6 +106,14 @@ async def test_run_turn_passes_correctly_scripted_punjabi(monkeypatch):
     assert result.translated_text == "translated"
 
 
+def test_script_mismatch_allows_latin_drug_names_inside_urdu():
+    assert script_mismatch("میں ہر صبح Metformin, Remepro اور Atorvastatin لیتا ہوں", "ur") is False
+
+
+def test_script_mismatch_flags_an_all_latin_transcript():
+    assert script_mismatch("I take metformin every morning", "ur") is True
+
+
 def test_script_mismatch_ignores_languages_without_a_defined_script():
     assert script_mismatch("anything at all", "en") is False
 

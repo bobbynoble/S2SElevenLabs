@@ -28,6 +28,8 @@ carries the same flag here since the underlying problem is STT, not TTS.
 
 from __future__ import annotations
 
+import re
+
 from .models import LanguageInfo
 
 SUPPORTED_LANGUAGES: list[LanguageInfo] = [
@@ -52,6 +54,19 @@ SUPPORTED_LANGUAGES: list[LanguageInfo] = [
     # ps: ElevenLabs' own "Moderate, >25-50% WER" tier; failed outright in live testing.
     LanguageInfo(code="ps", english_name="Pashto", native_name="پښتو", stt_supported=True, tts_supported=True, stt_low_confidence=True),
     LanguageInfo(code="vi", english_name="Vietnamese", native_name="Tiếng Việt", stt_supported=True, tts_supported=True),
+    # Uganda/Ghana additions: eleven_v3 TTS -> Scribe STT -> back-translation round-trip verified
+    # live on medical phrases (translated with Opus). sw: Scribe "High Accuracy" tier; ha: "Good".
+    LanguageInfo(code="sw", english_name="Swahili", native_name="Kiswahili", stt_supported=True, tts_supported=True),
+    LanguageInfo(code="ha", english_name="Hausa", native_name="Hausa", stt_supported=True, tts_supported=True),
+    # lg: Scribe "Moderate, >25-50% WER" tier. rw/luo/twi: not in Scribe's rated list at all, and
+    # Scribe reports Luo audio as detected_language=eng even with the hint. Twi's STT code is "twi"
+    # ("ak"/"aka" are rejected), and its round-trip scored a worst-word logprob of -1.16.
+    # Ewe and Ga were tested and left out: Scribe rejects both codes, and auto-detection
+    # misheard Ga "chest" as "neck" and turned Ewe into Greek.
+    LanguageInfo(code="lg", english_name="Luganda", native_name="Luganda", stt_supported=True, tts_supported=True, stt_low_confidence=True),
+    LanguageInfo(code="rw", english_name="Kinyarwanda", native_name="Ikinyarwanda", stt_supported=True, tts_supported=True, stt_low_confidence=True),
+    LanguageInfo(code="luo", english_name="Luo (Dholuo)", native_name="Dholuo", stt_supported=True, tts_supported=True, stt_low_confidence=True),
+    LanguageInfo(code="twi", english_name="Twi (Akan)", native_name="Twi", stt_supported=True, tts_supported=True, stt_low_confidence=True),
     # Confirmed NOT reliable even with eleven_v3 -- STT round-trip returns unrelated text.
     LanguageInfo(code="ti", english_name="Tigrinya", native_name="ትግርኛ", stt_supported=True, tts_supported=False, stt_low_confidence=True),
 ]
@@ -75,3 +90,43 @@ def is_tts_supported(code: str) -> bool:
 def english_name_for(code: str) -> str:
     lang = _BY_CODE.get(code)
     return lang.english_name if lang else code
+
+
+# Per-word confidence doesn't catch every failure: confirmed live that Scribe can mishear
+# Punjabi speech as Hindi and transcribe it fluently in Devanagari instead of Gurmukhi --
+# "ਆਉਣ ਲਈ ਧੰਨਵਾਦ" (Gurmukhi) came back as "धन्यवाद" (Devanagari) with unremarkable per-word
+# confidence, since the model isn't uncertain, it's just answering a different question. Only
+# covers scripts distinct enough from Latin that a wrong-language transcript is detectable this
+# way; Latin-script languages share too much of the same alphabet for this check to help there.
+# Also applied to translator output: confirmed live that Claude can answer a Punjabi request in
+# Urdu script and then append its own self-correction ("Wait, let me provide the correct
+# Punjabi translation..."), all of which TTS would read aloud.
+_SCRIPT_PATTERNS: dict[str, re.Pattern[str]] = {
+    "ar": re.compile(r"[؀-ۿ]"),
+    "fa": re.compile(r"[؀-ۿ]"),
+    "ur": re.compile(r"[؀-ۿ]"),
+    "ps": re.compile(r"[؀-ۿ]"),
+    "pa": re.compile(r"[਀-੿]"),
+    "bn": re.compile(r"[ঀ-৿]"),
+    "zh": re.compile(r"[一-鿿]"),
+    "ti": re.compile(r"[ሀ-፿]"),
+}
+_MIN_ALPHA_CHARS_FOR_SCRIPT_CHECK = 5
+_MIN_EXPECTED_SCRIPT_RATIO = 0.4
+
+
+def script_mismatch(text: str, lang_code: str) -> bool:
+    pattern = _SCRIPT_PATTERNS.get(lang_code)
+    if pattern is None:
+        return False
+    alpha_chars = [c for c in text if c.isalpha()]
+    if len(alpha_chars) < _MIN_ALPHA_CHARS_FOR_SCRIPT_CHECK:
+        return False
+    # Plain Latin letters are left out of the ratio: Scribe Medical writes drug names in Latin
+    # inside Urdu ("میں ہر صبح Metformin, Remepro اور Atorvastatin لیتا ہوں"), which would
+    # otherwise fail a correct transcript. An all-Latin transcript is still a mismatch.
+    non_latin = [c for c in alpha_chars if not c.isascii()]
+    if not non_latin:
+        return True
+    expected = sum(1 for c in non_latin if pattern.match(c))
+    return (expected / len(non_latin)) < _MIN_EXPECTED_SCRIPT_RATIO

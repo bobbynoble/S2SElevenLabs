@@ -7,6 +7,7 @@
     @pointerdown="onPress"
     @pointerup="onRelease"
     @pointerleave="onRelease"
+    @pointercancel="onRelease"
   >
     <span class="icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
@@ -24,8 +25,10 @@ import { ref } from 'vue'
 const emit = defineEmits(['start', 'end'])
 const active = ref(false)
 
-function onPress() {
+function onPress(event) {
   if (active.value) return
+  // Keeps the press on this button if the finger drifts, instead of ending the turn.
+  event.currentTarget.setPointerCapture?.(event.pointerId)
   active.value = true
   emit('start')
 }
@@ -55,6 +58,11 @@ defineExpose({ forceRelease: onRelease })
   cursor: pointer;
   touch-action: none;
   user-select: none;
+  /* iOS: a long press otherwise opens the copy/lookup callout, which cancels the pointer
+     mid-turn and left the button stuck "on" in testing. */
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   box-shadow: 0 4px 0 var(--color-accent-dark);
 }
 .mic-button .icon {

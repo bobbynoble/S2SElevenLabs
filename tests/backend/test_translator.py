@@ -33,6 +33,19 @@ async def test_translate_calls_claude_with_language_names(monkeypatch):
     assert "Polish" in prompt
 
 
+async def test_translate_uses_language_specific_model_for_either_side(monkeypatch):
+    response = SimpleNamespace(content=[SimpleNamespace(type="text", text="Hello")])
+    fake_client = _FakeAnthropicClient(response)
+    monkeypatch.setattr(translator.anthropic, "AsyncAnthropic", lambda: fake_client)
+    monkeypatch.setattr(translator, "_LANGUAGE_MODELS", {"so": "strong-model"})
+
+    await translator.translate("Salaan", "so", "en")
+    assert fake_client.messages.last_kwargs["model"] == "strong-model"
+
+    await translator.translate("Cześć", "pl", "en")
+    assert fake_client.messages.last_kwargs["model"] == translator.ANTHROPIC_MODEL
+
+
 async def test_translate_skips_api_call_for_identical_languages(monkeypatch):
     def fail_client():
         raise AssertionError("Should not construct a client for identical source/target languages")
@@ -73,6 +86,34 @@ async def test_translate_raises_on_commentary_instead_of_translation(monkeypatch
 
     with pytest.raises(translator.TranslationError):
         await translator.translate("garbled input", "pa", "en")
+
+
+async def test_translate_raises_on_self_correcting_commentary(monkeypatch):
+    response = SimpleNamespace(
+        stop_reason="end_turn",
+        content=[SimpleNamespace(
+            type="text",
+            text="Por favor, siéntese.\n\nWait, let me provide the correct Spanish translation:\n\nTome asiento.",
+        )],
+    )
+    fake_client = _FakeAnthropicClient(response)
+    monkeypatch.setattr(translator.anthropic, "AsyncAnthropic", lambda: fake_client)
+
+    with pytest.raises(translator.TranslationError):
+        await translator.translate("Please take a seat.", "en", "es")
+
+
+async def test_translate_raises_when_output_is_in_wrong_script(monkeypatch):
+    # Urdu script returned for a Punjabi (Gurmukhi) request, as seen live.
+    response = SimpleNamespace(
+        stop_reason="end_turn",
+        content=[SimpleNamespace(type="text", text="براہ کرم بیٹھ جائیں، ایک نرس جلد ہی آپ کا نام پکاریں گی۔")],
+    )
+    fake_client = _FakeAnthropicClient(response)
+    monkeypatch.setattr(translator.anthropic, "AsyncAnthropic", lambda: fake_client)
+
+    with pytest.raises(translator.TranslationError):
+        await translator.translate("Please take a seat.", "en", "pa")
 
 
 async def test_translate_skips_api_call_for_empty_text(monkeypatch):

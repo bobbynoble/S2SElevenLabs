@@ -17,6 +17,7 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
 
 from dotenv import load_dotenv
 
@@ -26,7 +27,7 @@ from dotenv import load_dotenv
 # back to their hardcoded defaults for the lifetime of the process.
 load_dotenv()
 
-from fastapi import Depends, FastAPI, HTTPException, Response, Security, WebSocket, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, Security, WebSocket, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 
@@ -36,9 +37,17 @@ from .models import CreateSessionResponse, HealthResponse, LanguageInfo
 from .qr import build_join_url, generate_qr_png
 from .session_manager import manager
 
+# Also written to a file so tester sessions can be reviewed afterwards. Logs never contain
+# what was said -- only turn metadata (see _log_turn in websocket_handler.py).
+_log_file = os.getenv("LOG_FILE", "logs/backend.log")
+os.makedirs(os.path.dirname(_log_file) or ".", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        RotatingFileHandler(_log_file, maxBytes=5_000_000, backupCount=3, encoding="utf-8"),
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -66,6 +75,7 @@ async def _expiry_sweep_loop() -> None:
         await asyncio.sleep(_EXPIRY_SWEEP_INTERVAL_SECONDS)
         expired = manager.expire_stale_sessions()
         for session in expired:
+            manager.remove(session)
             logger.info("Session %s expired", session.id)
 
 
@@ -94,7 +104,7 @@ async def lifespan(app: FastAPI):
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Hospital Reception Speech-to-Speech Interpreter",
+    title="DXC Demo for NHS Participants",
     description=(
         "Live multilingual speech-to-speech interpreter for hospital reception desks. "
         "ElevenLabs performs speech-to-text and text-to-speech; Claude performs the "
@@ -134,8 +144,13 @@ async def get_languages() -> list[LanguageInfo]:
     dependencies=[Depends(_verify_api_key)],
     tags=["Sessions"],
 )
-async def create_session() -> CreateSessionResponse:
+async def create_session(request: Request) -> CreateSessionResponse:
     session = manager.create_session()
+    # origin lets the daily tester-activity report leave out local test traffic (no IPs logged).
+    # Public traffic arrives through a tunnel/ingress that adds X-Forwarded-For; the Vite dev
+    # proxy rewrites Host, so Host can't tell the two apart.
+    origin = "remote" if request.headers.get("x-forwarded-for") else "local"
+    logger.info("Session %s created origin=%s", session.id[:8], origin)
     join_url = build_join_url(session.patient_token)
     return CreateSessionResponse(
         session_id=session.id,

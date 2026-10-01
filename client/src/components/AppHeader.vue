@@ -1,8 +1,7 @@
 <template>
   <header class="app-header">
     <div class="bar">
-      <span class="badge" aria-hidden="true">NHS</span>
-      <span class="service-name">Hospital Reception Interpreter</span>
+      <span class="service-name">DXC Demo for NHS Participants</span>
     </div>
   </header>
 </template>
@@ -21,16 +20,6 @@
   gap: 0.75rem;
   max-width: 640px;
   margin: 0 auto;
-}
-.badge {
-  background: #ffffff;
-  color: var(--color-primary);
-  font-weight: 800;
-  font-size: 1rem;
-  letter-spacing: 0.03em;
-  padding: 0.25rem 0.5rem;
-  border-radius: 3px;
-  line-height: 1;
 }
 .service-name {
   color: #ffffff;

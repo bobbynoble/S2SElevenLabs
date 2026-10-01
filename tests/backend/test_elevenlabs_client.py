@@ -173,6 +173,7 @@ async def test_transcribe_and_synthesize_request_zero_retention(monkeypatch):
     await _collect(elevenlabs_client.synthesize_stream("hello"))
 
     assert fake_stt.calls[0]["enable_logging"] is False
+    assert fake_stt.calls[0]["tag_audio_events"] is False
     _voice_id, kwargs = fake_tts.calls[0]
     assert kwargs["enable_logging"] is False
 

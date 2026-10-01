@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 import uuid
 from datetime import datetime, timezone
 
@@ -147,17 +148,36 @@ async def _handle_control_message(
     return turn_active, turn_buffer
 
 
+def _log_turn(session: Session, speaker: Speaker, audio_bytes: bytes, outcome: str, started: float,
+              tts_seconds: float | None = None, min_word_logprob: float | None = None) -> None:
+    """One line per turn for reviewing tester sessions afterwards. Metadata only -- never what
+    was said or its translation."""
+    if speaker == "patient":
+        source, target = session.patient_language, session.receptionist_language
+    else:
+        source, target = session.receptionist_language, session.patient_language
+    logger.info(
+        "turn session=%s speaker=%s langs=%s->%s audio_s=%.1f outcome=%s min_logprob=%s process_s=%.1f tts_s=%s",
+        session.id[:8], speaker, source, target, len(audio_bytes) / 2 / elevenlabs_client.PCM_SAMPLE_RATE_HZ,
+        outcome, "-" if min_word_logprob is None else f"{min_word_logprob:.2f}", time.perf_counter() - started,
+        "-" if tts_seconds is None else f"{tts_seconds:.1f}",
+    )
+
+
 async def _process_turn(session: Session, speaker: Speaker, audio_bytes: bytes) -> None:
     await _broadcast_status(session, "processing")
     turn_id = uuid.uuid4().hex
+    started = time.perf_counter()
 
     session.total_stt_seconds += len(audio_bytes) / 2 / elevenlabs_client.PCM_SAMPLE_RATE_HZ
 
     try:
         result = await pipeline.run_turn(session, speaker, audio_bytes)
     except pipeline.PipelineError as exc:
+        _log_turn(session, speaker, audio_bytes, exc.code, started)
         await _send_error(session, speaker, exc.code, exc.message)
         return
+    processed = time.perf_counter()
 
     session.total_tts_characters += len(result.translated_text)
     session.turns.append(
@@ -173,10 +193,9 @@ async def _process_turn(session: Session, speaker: Speaker, audio_bytes: bytes) 
 
     await _broadcast_caption(session, speaker, result, turn_id)
 
-    if not is_tts_supported(result.translated_lang):
-        return
     listener_ws = session.receptionist_ws if speaker == "patient" else session.patient_ws
-    if listener_ws is None:
+    if not is_tts_supported(result.translated_lang) or listener_ws is None:
+        _log_turn(session, speaker, audio_bytes, "ok_caption_only", started, min_word_logprob=result.min_word_logprob)
         return
 
     await _broadcast_status(session, "speaking")
@@ -188,9 +207,12 @@ async def _process_turn(session: Session, speaker: Speaker, audio_bytes: bytes) 
             await listener_ws.send_bytes(pcm_chunk)
     except elevenlabs_client.ElevenLabsError as exc:
         logger.warning("Turn %s (%s): TTS streaming failed: %s", turn_id, speaker, exc)
+        _log_turn(session, speaker, audio_bytes, "tts_failed", started, min_word_logprob=result.min_word_logprob)
         await _send_error(session, speaker, "tts_failed", str(exc))
         return
     await listener_ws.send_json({"type": "audio_reply_end", "turn_id": turn_id})
+    _log_turn(session, speaker, audio_bytes, "ok", started, tts_seconds=time.perf_counter() - processed,
+              min_word_logprob=result.min_word_logprob)
 
 
 async def _send_usage_summary(session: Session) -> None:

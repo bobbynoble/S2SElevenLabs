@@ -17,6 +17,7 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
 
 from dotenv import load_dotenv
 
@@ -36,9 +37,17 @@ from .models import CreateSessionResponse, HealthResponse, LanguageInfo
 from .qr import build_join_url, generate_qr_png
 from .session_manager import manager
 
+# Also written to a file so tester sessions can be reviewed afterwards. Logs never contain
+# what was said -- only turn metadata (see _log_turn in websocket_handler.py).
+_log_file = os.getenv("LOG_FILE", "logs/backend.log")
+os.makedirs(os.path.dirname(_log_file) or ".", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        RotatingFileHandler(_log_file, maxBytes=5_000_000, backupCount=3, encoding="utf-8"),
+    ],
 )
 logger = logging.getLogger(__name__)
 

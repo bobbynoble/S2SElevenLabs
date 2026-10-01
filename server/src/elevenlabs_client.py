@@ -92,7 +92,9 @@ def _pcm16_to_wav(pcm_bytes: bytes, sample_rate: int = PCM_SAMPLE_RATE_HZ) -> by
 
 async def transcribe(pcm_audio: bytes, language_hint: str | None = None) -> TranscriptResult:
     wav_bytes = _pcm16_to_wav(pcm_audio)
-    kwargs = {"model_id": STT_MODEL_ID, "file": ("turn.wav", wav_bytes, "audio/wav"), "enable_logging": False}
+    kwargs = {"model_id": STT_MODEL_ID, "file": ("turn.wav", wav_bytes, "audio/wav"), "enable_logging": False,
+              # Otherwise a tap on the phone comes back as "[clicking]" and gets translated.
+              "tag_audio_events": False}
     if language_hint:
         kwargs["language_code"] = language_hint
 

@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 # back to their hardcoded defaults for the lifetime of the process.
 load_dotenv()
 
-from fastapi import Depends, FastAPI, HTTPException, Response, Security, WebSocket, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, Security, WebSocket, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 
@@ -144,8 +144,13 @@ async def get_languages() -> list[LanguageInfo]:
     dependencies=[Depends(_verify_api_key)],
     tags=["Sessions"],
 )
-async def create_session() -> CreateSessionResponse:
+async def create_session(request: Request) -> CreateSessionResponse:
     session = manager.create_session()
+    # origin lets the daily tester-activity report leave out local test traffic (no IPs logged).
+    # Public traffic arrives through a tunnel/ingress that adds X-Forwarded-For; the Vite dev
+    # proxy rewrites Host, so Host can't tell the two apart.
+    origin = "remote" if request.headers.get("x-forwarded-for") else "local"
+    logger.info("Session %s created origin=%s", session.id[:8], origin)
     join_url = build_join_url(session.patient_token)
     return CreateSessionResponse(
         session_id=session.id,

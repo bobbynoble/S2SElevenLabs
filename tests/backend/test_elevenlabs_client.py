@@ -136,21 +136,48 @@ async def test_synthesize_stream_uses_default_model_for_unlisted_language(monkey
     await _collect(elevenlabs_client.synthesize_stream("hello", language="en"))
 
     _voice_id, kwargs = fake_tts.calls[0]
-    assert kwargs["model_id"] == elevenlabs_client.TTS_MODEL_ID
-    assert kwargs["optimize_streaming_latency"] == elevenlabs_client.TTS_STREAMING_LATENCY
+    assert kwargs["model_id"] == elevenlabs_client.TTS_MODEL_ID == "eleven_v4_turbo"
+    # eleven_v4_turbo rejects this param outright (confirmed live: 400).
+    assert "optimize_streaming_latency" not in kwargs
 
 
-async def test_synthesize_stream_uses_extended_model_for_extended_language(monkeypatch):
+@pytest.mark.parametrize("language", ["ur", "ha", "lg", "rw", "ps"])
+async def test_synthesize_stream_uses_default_model_for_former_v3_languages(monkeypatch, language):
     fake_tts = _FakeTextToSpeech(chunks=[b"audio"])
     monkeypatch.setattr(elevenlabs_client, "_client", _FakeClient(tts=fake_tts))
     monkeypatch.setattr(elevenlabs_client, "ELEVENLABS_DEFAULT_VOICE_ID", "voice-123")
 
-    await _collect(elevenlabs_client.synthesize_stream("hello", language="ur"))
+    await _collect(elevenlabs_client.synthesize_stream("hello", language=language))
 
     _voice_id, kwargs = fake_tts.calls[0]
-    assert kwargs["model_id"] == elevenlabs_client.TTS_EXTENDED_MODEL_ID
+    assert kwargs["model_id"] == elevenlabs_client.TTS_MODEL_ID
+
+
+@pytest.mark.parametrize("language", ["luo", "twi"])
+async def test_synthesize_stream_keeps_pinned_languages_on_extended_model(monkeypatch, language):
+    fake_tts = _FakeTextToSpeech(chunks=[b"audio"])
+    monkeypatch.setattr(elevenlabs_client, "_client", _FakeClient(tts=fake_tts))
+    monkeypatch.setattr(elevenlabs_client, "ELEVENLABS_DEFAULT_VOICE_ID", "voice-123")
+
+    await _collect(elevenlabs_client.synthesize_stream("hello", language=language))
+
+    _voice_id, kwargs = fake_tts.calls[0]
+    assert kwargs["model_id"] == elevenlabs_client.TTS_EXTENDED_MODEL_ID == "eleven_v3"
     # eleven_v3 rejects this param outright (confirmed live: 400 unsupported_model).
     assert "optimize_streaming_latency" not in kwargs
+
+
+async def test_synthesize_stream_sends_streaming_latency_to_models_that_accept_it(monkeypatch):
+    fake_tts = _FakeTextToSpeech(chunks=[b"audio"])
+    monkeypatch.setattr(elevenlabs_client, "_client", _FakeClient(tts=fake_tts))
+    monkeypatch.setattr(elevenlabs_client, "ELEVENLABS_DEFAULT_VOICE_ID", "voice-123")
+    monkeypatch.setattr(elevenlabs_client, "TTS_MODEL_ID", "eleven_multilingual_v2")
+
+    await _collect(elevenlabs_client.synthesize_stream("hello", language="en"))
+
+    _voice_id, kwargs = fake_tts.calls[0]
+    assert kwargs["model_id"] == "eleven_multilingual_v2"
+    assert kwargs["optimize_streaming_latency"] == elevenlabs_client.TTS_STREAMING_LATENCY
 
 
 async def test_synthesize_stream_raises_on_api_error(monkeypatch):

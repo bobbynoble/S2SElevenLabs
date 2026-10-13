@@ -2,10 +2,11 @@
 via GET /api/languages rather than duplicating it client-side.
 
 tts_supported was originally set from ElevenLabs' documented eleven_multilingual_v2 language
-coverage. Seven languages below (see elevenlabs_client.py's _EXTENDED_MODEL_LANGUAGES) are
-synthesized via the newer eleven_v3 model instead, since v2 doesn't cover them -- confirmed by
-round-tripping generated audio back through Scribe STT and getting the original text back, not
-just by checking the model's documented language list. Tigrinya is the one exception: eleven_v3
+coverage, then extended via eleven_v3. Speech is now synthesized with eleven_v4_turbo for every
+language except Luo and Twi, which stay on eleven_v3 (see elevenlabs_client.py's
+EXTENDED_MODEL_LANGUAGES) -- each choice confirmed by round-tripping generated audio back through
+Scribe STT and getting the original text back, not just by checking the model's documented
+language list (tools/v4_turbo_roundtrip_eval.py). Tigrinya is the one exception: eleven_v3
 accepts a Tigrinya request and returns audio, but the STT round-trip comes back as unrelated
 words, so it stays tts_supported=False pending an actually-confirmed model/voice.
 

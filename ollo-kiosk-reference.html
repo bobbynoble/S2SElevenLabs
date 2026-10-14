@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ollo — Kiosk welcome (reference)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ollo-teal:#0F766E; --ollo-coral:#E8604C; --ollo-coral-soft:#F28B7A;
+    --ollo-ink:#13302F; --ollo-ink-muted:#3D5452;
+    --ollo-ground:#F4F7F6; --ollo-surface:#FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--ollo-ground); color:var(--ollo-ink); font-family:'Atkinson Hyperlegible', sans-serif; }
+  .screen { min-height:100vh; max-width:900px; margin:0 auto; padding:72px 64px; display:flex; flex-direction:column; align-items:center; gap:40px; }
+  .location { font-size:20px; font-weight:700; color:var(--ollo-ink-muted); }
+  .hello { display:flex; flex-direction:column; align-items:center; gap:16px; text-align:center; }
+  h1 { margin:0; font-family:'Fredoka', sans-serif; font-weight:600; font-size:88px; line-height:1; color:var(--ollo-teal); }
+  .lead { font-size:32px; line-height:1.35; max-width:640px; margin:0; }
+  .langs { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:20px; width:100%; }
+  .lang { min-height:96px; border:2px solid var(--ollo-teal); border-radius:24px; background:var(--ollo-surface); color:var(--ollo-ink); font:700 30px 'Atkinson Hyperlegible', sans-serif; cursor:pointer; }
+  .lang.primary { background:var(--ollo-teal); color:#fff; border-color:var(--ollo-teal); }
+  .lang.more { background:transparent; border-style:dashed; border-color:var(--ollo-ink-muted); }
+  .lang:focus-visible { outline:4px solid var(--ollo-coral); outline-offset:4px; }
+  .notice { margin-top:auto; width:100%; padding:24px 28px; border-radius:20px; background:var(--ollo-surface); }
+  .notice strong { display:block; font-size:22px; margin-bottom:6px; }
+  .notice p { margin:0; font-size:20px; line-height:1.4; color:var(--ollo-ink-muted); }
+  @media (max-width:600px){ .screen{padding:40px 16px} h1{font-size:64px} .lead{font-size:24px} .langs{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<main class="screen">
+  <div class="location">[HOSPITAL NAME] · Main Reception</div>
+  <img src="ollo-mascot.svg" width="240" height="240" alt="Ollo mascot waving hello">
+  <section class="hello">
+    <h1>Ollo!</h1>
+    <p class="lead">I can help you check in and find your way. Tap your language to start.</p>
+  </section>
+  <nav class="langs" aria-label="Choose your language">
+    <button class="lang primary" type="button" lang="en">English</button>
+    <button class="lang" type="button" lang="pl">Polski</button>
+    <button class="lang" type="button" lang="ur" dir="rtl">اردو</button>
+    <button class="lang" type="button" lang="pa">ਪੰਜਾਬੀ</button>
+    <button class="lang" type="button" lang="ro">Română</button>
+    <button class="lang" type="button" lang="ar" dir="rtl">العربية</button>
+    <button class="lang" type="button" lang="bn">বাংলা</button>
+    <button class="lang more" type="button">More languages</button>
+  </nav>
+  <aside class="notice" role="note">
+    <strong>I’m Ollo, a computer assistant — not a person.</strong>
+    <p>A member of staff is always nearby. If you feel very unwell, tell the reception team straight away.</p>
+  </aside>
+</main>
+</body>
+</html>

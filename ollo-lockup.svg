@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 200" width="420" height="200" role="img" aria-label="Ollo logo: mascot and wordmark">
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600&amp;display=swap');</style>
+  </defs>
+  <g>
+    <ellipse cx="104" cy="94" rx="82" ry="76" fill="#0F766E"/>
+    <path d="M52 146 L30 186 L86 162 Z" fill="#0F766E"/>
+    <ellipse cx="80" cy="86" rx="13" ry="17" fill="#FFFFFF"/>
+    <ellipse cx="128" cy="86" rx="13" ry="17" fill="#FFFFFF"/>
+    <circle cx="83" cy="90" r="7" fill="#13302F"/>
+    <circle cx="131" cy="90" r="7" fill="#13302F"/>
+    <path d="M80 118 Q104 140 128 118" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <text x="208" y="128" font-family="Fredoka, 'Nunito', sans-serif" font-weight="600" font-size="104" fill="#13302F">oll<tspan fill="#E8604C">o</tspan></text>
+</svg>

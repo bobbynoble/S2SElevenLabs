@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Ollo mascot: a smiling teal speech bubble">
+  <ellipse cx="104" cy="94" rx="82" ry="76" fill="#0F766E"/>
+  <path d="M52 146 L30 186 L86 162 Z" fill="#0F766E"/>
+  <ellipse cx="80" cy="86" rx="13" ry="17" fill="#FFFFFF"/>
+  <ellipse cx="128" cy="86" rx="13" ry="17" fill="#FFFFFF"/>
+  <circle cx="83" cy="90" r="7" fill="#13302F"/>
+  <circle cx="131" cy="90" r="7" fill="#13302F"/>
+  <circle cx="86" cy="86" r="2.5" fill="#FFFFFF"/>
+  <circle cx="134" cy="86" r="2.5" fill="#FFFFFF"/>
+  <circle cx="60" cy="114" r="9" fill="#F28B7A"/>
+  <circle cx="148" cy="114" r="9" fill="#F28B7A"/>
+  <path d="M80 118 Q104 140 128 118" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+</svg>

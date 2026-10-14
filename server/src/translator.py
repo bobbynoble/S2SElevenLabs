@@ -20,10 +20,15 @@ _LANGUAGE_MODELS: dict[str, str] = dict(
     for pair in os.getenv(
         "ANTHROPIC_LANGUAGE_MODELS",
         (
-            "so:claude-opus-5-5,ps:claude-sonnet-5,pa:claude-sonnet-5,"
-            # Uganda/Ghana languages were only verified with Opus.
-            "sw:claude-opus-5-5,ha:claude-opus-5-5,lg:claude-opus-5-5,rw:claude-opus-5-5,"
-            "luo:claude-opus-5-5,twi:claude-opus-5-5"
+            "ps:claude-sonnet-5,pa:claude-sonnet-5,"
+            # Somali, Swahili, Hausa moved from Opus to Sonnet 5 (tools/translation_model_eval.py,
+            # 13 Oct): no clinically harmful errors in either direction (Opus had one, in Somali
+            # after the speech round trip) and about half the translation time (Hausa 3.4s -> 1.9s).
+            "so:claude-sonnet-5,sw:claude-sonnet-5,ha:claude-sonnet-5,"
+            # Kept on Opus: Sonnet made harmful errors translating patients into English -- e.g.
+            # Kinyarwanda "chest pain" -> "throat pain", "I fell and hit my head" -> "I'll hit you on
+            # the head"; Luganda "tablet" -> "spoonful"; Luo "pregnant" -> "ill" (11 vs Opus's 2).
+            "lg:claude-opus-5-5,rw:claude-opus-5-5,luo:claude-opus-5-5,twi:claude-opus-5-5"
         ),
     ).split(",")
     if pair.strip()

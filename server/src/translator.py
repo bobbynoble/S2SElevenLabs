@@ -7,9 +7,32 @@ import os
 
 import anthropic
 
-from .languages import english_name_for
+from .languages import english_name_for, script_mismatch
 
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+# Haiku mistranslated most test phrases for these languages (e.g. Somali "Are you allergic to any
+# medication?" -> "Does everyone succeed with the treatment?"), while Sonnet/Opus got them all
+# right. Only Opus's Somali also survived the full TTS -> STT round trip on every phrase. Used
+# whenever either side of the turn is one of these languages. Format: "so:model,ps:model".
+# Interim measure until ElevenLabs Realtime Translate replaces this pipeline.
+_LANGUAGE_MODELS: dict[str, str] = dict(
+    pair.split(":", 1)
+    for pair in os.getenv(
+        "ANTHROPIC_LANGUAGE_MODELS",
+        (
+            "ps:claude-sonnet-5,pa:claude-sonnet-5,"
+            # Somali, Swahili, Hausa moved from Opus to Sonnet 5 (tools/translation_model_eval.py,
+            # 13 Oct): no clinically harmful errors in either direction (Opus had one, in Somali
+            # after the speech round trip) and about half the translation time (Hausa 3.4s -> 1.9s).
+            "so:claude-sonnet-5,sw:claude-sonnet-5,ha:claude-sonnet-5,"
+            # Kept on Opus: Sonnet made harmful errors translating patients into English -- e.g.
+            # Kinyarwanda "chest pain" -> "throat pain", "I fell and hit my head" -> "I'll hit you on
+            # the head"; Luganda "tablet" -> "spoonful"; Luo "pregnant" -> "ill" (11 vs Opus's 2).
+            "lg:claude-opus-5-5,rw:claude-opus-5-5,luo:claude-opus-5-5,twi:claude-opus-5-5"
+        ),
+    ).split(",")
+    if pair.strip()
+)
 
 SYSTEM_PROMPT = (
     "You are a precise reception/medical interpreter for a hospital front desk. "
@@ -35,6 +58,8 @@ _COMMENTARY_MARKERS = (
     "i am not able", "as an ai", "could you please provide", "please provide the text",
     "let me know if", "i need more context", "could you clarify", "translation challenging",
     "doesn't make sense", "does not make sense", "i'm unable", "i am unable",
+    "wait, let me", "let me provide", "actually, here is", "here is the correct",
+    "here is the proper",
 )
 
 
@@ -60,7 +85,7 @@ async def translate(text: str, source_lang: str, target_lang: str) -> str:
     )
     try:
         response = await client.messages.create(
-            model=ANTHROPIC_MODEL,
+            model=_LANGUAGE_MODELS.get(target_lang) or _LANGUAGE_MODELS.get(source_lang) or ANTHROPIC_MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
@@ -84,6 +109,10 @@ async def translate(text: str, source_lang: str, target_lang: str) -> str:
     if _looks_like_commentary(translated):
         raise TranslationError(
             "Claude responded with commentary instead of a translation (likely garbled/unclear input)."
+        )
+    if script_mismatch(translated, target_lang):
+        raise TranslationError(
+            f"Claude's translation isn't in the expected {english_name_for(target_lang)} script."
         )
 
     return translated

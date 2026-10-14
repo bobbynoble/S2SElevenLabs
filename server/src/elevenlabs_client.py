@@ -22,7 +22,10 @@ from elevenlabs.core.api_error import ApiError
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 ELEVENLABS_BASE_URL = os.getenv("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io")
 ELEVENLABS_DEFAULT_VOICE_ID = os.getenv("ELEVENLABS_DEFAULT_VOICE_ID", "")
-STT_MODEL_ID = os.getenv("ELEVENLABS_STT_MODEL_ID", "scribe_v2")
+# Same API and price as scribe_v2. Side-by-side on identical audio (8 languages, clean + noisy):
+# drug-name recall 82% vs 77%, median latency 0.56s vs 0.92s, and it fixed misheard clinical
+# words (Urdu "stroke" heard as "college", Somali "amoxicillin" as "amaaxas Selin").
+STT_MODEL_ID = os.getenv("ELEVENLABS_STT_MODEL_ID", "scribe_v2_medical")
 # Scribe returns a log-probability per transcribed word (range (-inf, 0], closer to 0 is more
 # confident). Calibrated live against two real failures caught in testing: a Somali round-trip
 # that silently dropped "what happened today?" had its worst word at -0.995, and a Punjabi
@@ -30,23 +33,45 @@ STT_MODEL_ID = os.getenv("ELEVENLABS_STT_MODEL_ID", "scribe_v2")
 # correctly-transcribed word across both languages, including legitimately quiet/short ones,
 # stayed at -0.52 or better. -0.6 sits in the gap between those two groups.
 STT_LOW_CONFIDENCE_LOGPROB = float(os.getenv("ELEVENLABS_STT_LOW_CONFIDENCE_LOGPROB", "-0.6"))
-TTS_MODEL_ID = os.getenv("ELEVENLABS_TTS_MODEL_ID", "eleven_multilingual_v2")
+# eleven_v4_turbo is the default for every language except the ones pinned below. Compared
+# side-by-side against the previous setup (multilingual_v2 for 9 languages, eleven_v3 for 13) by
+# round-tripping generated audio back through Scribe STT -- see tools/v4_turbo_roundtrip_eval.py.
+# It matched or beat the old model for 20 of 21 voice languages (Pashto 0.45 -> 0.90, Punjabi
+# 0.79 -> 1.00) and starts audio in ~0.1-0.3s versus 0.4-1.1s. Kinyarwanda isn't on its
+# documented language list but passed 6/6 repeat runs (avg 0.96 vs v3's 0.94).
+TTS_MODEL_ID = os.getenv("ELEVENLABS_TTS_MODEL_ID", "eleven_v4_turbo")
 TTS_EXTENDED_MODEL_ID = os.getenv("ELEVENLABS_TTS_EXTENDED_MODEL_ID", "eleven_v3")
 
-# Languages eleven_multilingual_v2 doesn't cover but eleven_v3 does -- confirmed by
-# round-tripping generated audio back through Scribe STT and getting the original text back.
-# eleven_v3 is noticeably slower per call, so it's used only for these, not as the default.
-EXTENDED_MODEL_LANGUAGES = {"pa", "ur", "bn", "so", "fa", "ps", "vi"}
+# Languages kept on eleven_v3 because the default model isn't proven for them:
+#   luo: eleven_v4_turbo audio came back as an empty transcript in 4 of 6 runs (v3: 6/6, avg 0.97).
+#   twi: a tie (v4_turbo avg 0.80 vs v3 0.78 over 6 runs) -- no gain, so not worth the risk.
+# Comma-separated override, e.g. ELEVENLABS_TTS_EXTENDED_LANGUAGES=luo,twi,rw
+EXTENDED_MODEL_LANGUAGES = {
+    code.strip()
+    for code in os.getenv("ELEVENLABS_TTS_EXTENDED_LANGUAGES", "luo,twi").split(",")
+    if code.strip()
+}
+
+# optimize_streaming_latency is only accepted by these models -- eleven_v3 and eleven_v4_turbo
+# both reject it (confirmed live: 400), so it's sent only when the chosen model is listed here.
+STREAMING_LATENCY_MODELS = {
+    "eleven_multilingual_v2", "eleven_flash_v2_5", "eleven_flash_v2", "eleven_turbo_v2_5", "eleven_turbo_v2",
+}
 
 PCM_SAMPLE_RATE_HZ = 16000
 
+# Both calls below send enable_logging=False (ElevenLabs Zero Retention Mode, Enterprise-only):
+# patient audio and text are held only in memory for the request and never stored. Without it,
+# every request was confirmed live to land in the account's history, stored in the US by default.
+
 # From this workspace's own Enterprise API pricing (Subscription.docx): Scribe v2 STT is
-# $0.22/hour, Multilingual v2 and v3 TTS are both $100/1M characters.
+# $0.22/hour, Multilingual v2 and v3 TTS are both $100/1M characters. eleven_v4_turbo isn't in
+# that document; its public list price is lower, so this over- rather than under-estimates.
 STT_PRICE_PER_SECOND = float(os.getenv("ELEVENLABS_STT_PRICE_PER_HOUR", "0.22")) / 3600
 TTS_PRICE_PER_CHAR = float(os.getenv("ELEVENLABS_TTS_PRICE_PER_1M_CHARS", "100.00")) / 1_000_000
 
 # 0-4; higher trades a little pronunciation accuracy for lower time-to-first-audio-chunk.
-# Not accepted by eleven_v3 at all (see synthesize_stream).
+# Only sent to models in STREAMING_LATENCY_MODELS (see synthesize_stream).
 TTS_STREAMING_LATENCY = int(os.getenv("ELEVENLABS_TTS_STREAMING_LATENCY", "2"))
 
 _client = AsyncElevenLabs(api_key=ELEVENLABS_API_KEY, base_url=ELEVENLABS_BASE_URL)
@@ -85,7 +110,9 @@ def _pcm16_to_wav(pcm_bytes: bytes, sample_rate: int = PCM_SAMPLE_RATE_HZ) -> by
 
 async def transcribe(pcm_audio: bytes, language_hint: str | None = None) -> TranscriptResult:
     wav_bytes = _pcm16_to_wav(pcm_audio)
-    kwargs = {"model_id": STT_MODEL_ID, "file": ("turn.wav", wav_bytes, "audio/wav")}
+    kwargs = {"model_id": STT_MODEL_ID, "file": ("turn.wav", wav_bytes, "audio/wav"), "enable_logging": False,
+              # Otherwise a tap on the phone comes back as "[clicking]" and gets translated.
+              "tag_audio_events": False}
     if language_hint:
         kwargs["language_code"] = language_hint
 
@@ -116,10 +143,9 @@ async def synthesize_stream(text: str, language: str | None = None, voice_id: st
         raise ElevenLabsError("No ElevenLabs voice_id configured (ELEVENLABS_DEFAULT_VOICE_ID).")
 
     model_id = TTS_EXTENDED_MODEL_ID if language in EXTENDED_MODEL_LANGUAGES else TTS_MODEL_ID
-    kwargs = {"model_id": model_id, "output_format": "pcm_16000"}
-    # eleven_v3 rejects this param outright (confirmed live: 400 unsupported_model) -- it's only
-    # meaningful for the faster default model.
-    if model_id != TTS_EXTENDED_MODEL_ID:
+    kwargs = {"model_id": model_id, "output_format": "pcm_16000", "enable_logging": False}
+    # eleven_v3 and eleven_v4_turbo reject this param outright (confirmed live: 400).
+    if model_id in STREAMING_LATENCY_MODELS:
         kwargs["optimize_streaming_latency"] = TTS_STREAMING_LATENCY
 
     try:

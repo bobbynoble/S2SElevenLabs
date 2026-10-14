@@ -4,7 +4,7 @@
     <main class="receptionist">
       <template v-if="!languageConfirmed">
         <h1>Reception Console</h1>
-        <p class="helper">Choose the language you'll be speaking as the receptionist.</p>
+        <p class="helper">Choose <strong>your own</strong> language as the receptionist (usually English). The patient chooses their language on their own phone.</p>
         <LanguagePicker v-model="selectedLanguage" :languages="languages" />
         <button type="button" class="btn btn-primary continue" :disabled="!selectedLanguage" @click="confirmLanguage">
           Start

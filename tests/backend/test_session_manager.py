@@ -23,6 +23,18 @@ def test_get_by_id_and_token():
     assert manager.get_by_token("unknown-token") is None
 
 
+def test_remove_drops_session_lookups_and_conversation_text():
+    manager = SessionManager()
+    session = manager.create_session()
+    session.turns.append(object())
+
+    manager.remove(session)
+
+    assert manager.get_by_id(session.id) is None
+    assert manager.get_by_token(session.patient_token) is None
+    assert session.turns == []
+
+
 def test_end_session_marks_ended():
     manager = SessionManager()
     session = manager.create_session()

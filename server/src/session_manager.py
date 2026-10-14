@@ -111,6 +111,8 @@ class SessionManager:
         return expired
 
     def remove(self, session: Session) -> None:
+        # Drops the conversation text now, not whenever the last socket referencing it closes.
+        session.turns.clear()
         self._sessions.pop(session.id, None)
         self._by_token.pop(session.patient_token, None)
 

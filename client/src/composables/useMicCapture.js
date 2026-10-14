@@ -9,7 +9,9 @@ import { createNoiseGraph } from '../audio/hospitalNoise.js'
 const TARGET_SAMPLE_RATE = 16000
 const CHUNK_FLUSH_MS = 200
 const SILENCE_RMS_THRESHOLD = 0.01
-const SILENCE_AUTO_STOP_MS = 1800
+// Only a safety net for a button left held -- the speaker releases it to send. At 1.8s this cut
+// testers off at a natural pause between sentences ("only allows a sentence or two").
+const SILENCE_AUTO_STOP_MS = 8000
 
 function floatTo16BitPCM(floatSamples) {
   const buffer = new ArrayBuffer(floatSamples.length * 2)

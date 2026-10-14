@@ -216,6 +216,28 @@ def test_end_session_broadcasts_ended_status():
                 assert patient_ws.receive_json() == {"type": "status", "state": "ended", "detail": None}
 
 
+def test_turn_is_logged_without_what_was_said(monkeypatch, caplog):
+    _patch_run_turn(monkeypatch, original_text="Omutwe gunnuma", translated_text="My head hurts.")
+    caplog.set_level("INFO", logger=websocket_handler.logger.name)
+
+    with TestClient(app) as client:
+        session_data = _create_session(client)
+        session_id = session_data["session_id"]
+        secret = session_data["receptionist_secret"]
+        token = _token_from_join_url(session_data["patient_join_url"])
+
+        with client.websocket_connect(f"/ws/receptionist/{session_id}?secret={secret}") as receptionist_ws:
+            receptionist_ws.receive_json()  # waiting_for_patient
+
+            with client.websocket_connect(f"/ws/patient/{token}") as patient_ws:
+                _join_and_run_one_turn(receptionist_ws, patient_ws)
+
+    turn_lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("turn ")]
+    assert len(turn_lines) == 1
+    assert "speaker=patient" in turn_lines[0] and "outcome=ok" in turn_lines[0]
+    assert "Omutwe" not in caplog.text and "My head hurts" not in caplog.text
+
+
 def _join_and_run_one_turn(receptionist_ws, patient_ws, audio_bytes=b"\x00\x01" * 10):
     patient_ws.send_json({"type": "join", "language": "pl"})
     receptionist_ws.receive_json()  # patient_joined
@@ -290,6 +312,15 @@ def test_end_session_sends_clinical_code_to_receptionist_only(monkeypatch):
                     ],
                     "coding_notes": "Single complaint.",
                 }
+
+                # Coding was the last step, so the conversation must now be gone from memory.
+                session = None
+                for _ in range(50):
+                    session = manager.get_by_id(session_id)
+                    if session is None:
+                        break
+                    time.sleep(0.01)
+                assert session is None
 
 
 def test_end_session_reports_coding_failure_to_receptionist(monkeypatch):
